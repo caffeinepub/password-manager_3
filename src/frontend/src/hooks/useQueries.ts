@@ -155,3 +155,47 @@ export function useActivatePremium() {
     },
   });
 }
+
+export function useGetPremiumCodes() {
+  const { actor, isFetching } = useActor();
+  return useQuery({
+    queryKey: ["premiumCodes"],
+    queryFn: async () => {
+      if (!actor) return [];
+      try {
+        return await actor.getPremiumCodes();
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!actor && !isFetching,
+  });
+}
+
+export function useCreatePremiumCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      if (!actor) throw new Error("Не авторизован");
+      await actor.createPremiumCode(code);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["premiumCodes"] });
+    },
+  });
+}
+
+export function useRedeemPremiumCode() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      if (!actor) throw new Error("Не авторизован");
+      await actor.redeemPremiumCode(code);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["myProfile"] });
+    },
+  });
+}

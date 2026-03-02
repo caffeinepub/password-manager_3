@@ -28,16 +28,23 @@ export const PasswordEntry = IDL.Record({
   'createdAt' : Time,
   'notes' : IDL.Text,
 });
+export const PremiumCode = IDL.Record({
+  'code' : IDL.Text,
+  'createdAt' : Time,
+  'isUsed' : IDL.Bool,
+});
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'activatePremium' : IDL.Func([IDL.Principal], [], []),
+  'addDefaultProfile' : IDL.Func([], [], []),
   'addEntry' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [],
       [],
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+  'createPremiumCode' : IDL.Func([IDL.Text], [], []),
   'deleteEntry' : IDL.Func([IDL.Nat], [], []),
   'getAllUsers' : IDL.Func(
       [],
@@ -47,18 +54,20 @@ export const idlService = IDL.Service({
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
-  'getMyProfile' : IDL.Func([], [UserProfile], ['query']),
+  'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getPendingPremiumRequests' : IDL.Func(
       [],
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
       ['query'],
     ),
+  'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
   'requestPremium' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'updateEntry' : IDL.Func(
@@ -66,6 +75,7 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'validateCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
 });
 
 export const idlInitArgs = [];
@@ -91,16 +101,23 @@ export const idlFactory = ({ IDL }) => {
     'createdAt' : Time,
     'notes' : IDL.Text,
   });
+  const PremiumCode = IDL.Record({
+    'code' : IDL.Text,
+    'createdAt' : Time,
+    'isUsed' : IDL.Bool,
+  });
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'activatePremium' : IDL.Func([IDL.Principal], [], []),
+    'addDefaultProfile' : IDL.Func([], [], []),
     'addEntry' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [],
         [],
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
+    'createPremiumCode' : IDL.Func([IDL.Text], [], []),
     'deleteEntry' : IDL.Func([IDL.Nat], [], []),
     'getAllUsers' : IDL.Func(
         [],
@@ -110,18 +127,20 @@ export const idlFactory = ({ IDL }) => {
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
-    'getMyProfile' : IDL.Func([], [UserProfile], ['query']),
+    'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getPendingPremiumRequests' : IDL.Func(
         [],
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
         ['query'],
       ),
+    'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
     'requestPremium' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'updateEntry' : IDL.Func(
@@ -129,6 +148,7 @@ export const idlFactory = ({ IDL }) => {
         [],
         [],
       ),
+    'validateCode' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
   });
 };
 

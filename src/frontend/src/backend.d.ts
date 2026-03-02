@@ -17,6 +17,11 @@ export interface PasswordEntry {
     notes: string;
 }
 export type Time = bigint;
+export interface PremiumCode {
+    code: string;
+    createdAt: Time;
+    isUsed: boolean;
+}
 export interface UserProfile {
     premiumUntil?: Time;
     isPremium: boolean;
@@ -29,18 +34,23 @@ export enum UserRole {
 }
 export interface backendInterface {
     activatePremium(user: Principal): Promise<void>;
+    addDefaultProfile(): Promise<void>;
     addEntry(title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    createPremiumCode(code: string): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
     getAllUsers(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getEntries(): Promise<Array<PasswordEntry>>;
-    getMyProfile(): Promise<UserProfile>;
+    getMyProfile(): Promise<UserProfile | null>;
     getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>>;
+    getPremiumCodes(): Promise<Array<PremiumCode>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    redeemPremiumCode(code: string): Promise<void>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;
+    validateCode(code: string): Promise<boolean>;
 }

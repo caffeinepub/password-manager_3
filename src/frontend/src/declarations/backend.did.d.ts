@@ -19,6 +19,11 @@ export interface PasswordEntry {
   'createdAt' : Time,
   'notes' : string,
 }
+export interface PremiumCode {
+  'code' : string,
+  'createdAt' : Time,
+  'isUsed' : boolean,
+}
 export type Time = bigint;
 export interface UserProfile {
   'premiumUntil' : [] | [Time],
@@ -31,26 +36,31 @@ export type UserRole = { 'admin' : null } |
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'activatePremium' : ActorMethod<[Principal], undefined>,
+  'addDefaultProfile' : ActorMethod<[], undefined>,
   'addEntry' : ActorMethod<[string, string, string, string, string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  'createPremiumCode' : ActorMethod<[string], undefined>,
   'deleteEntry' : ActorMethod<[bigint], undefined>,
   'getAllUsers' : ActorMethod<[], Array<[Principal, UserProfile]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getEntries' : ActorMethod<[], Array<PasswordEntry>>,
-  'getMyProfile' : ActorMethod<[], UserProfile>,
+  'getMyProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getPendingPremiumRequests' : ActorMethod<
     [],
     Array<[Principal, UserProfile]>
   >,
+  'getPremiumCodes' : ActorMethod<[], Array<PremiumCode>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'redeemPremiumCode' : ActorMethod<[string], undefined>,
   'requestPremium' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateEntry' : ActorMethod<
     [bigint, string, string, string, string, string],
     undefined
   >,
+  'validateCode' : ActorMethod<[string], boolean>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

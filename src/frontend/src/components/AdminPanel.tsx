@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -12,12 +13,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Principal } from "@icp-sdk/core/principal";
 import {
-  AlertCircle,
   CheckCircle2,
   Clock,
   Crown,
+  Key,
   Loader2,
+  LogIn,
   LogOut,
+  Plus,
   Shield,
   Users,
 } from "lucide-react";
@@ -25,10 +28,13 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { UserProfile } from "../backend.d";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useActivatePremium,
+  useCreatePremiumCode,
   useGetAllUsers,
   useGetPendingPremiumRequests,
+  useGetPremiumCodes,
 } from "../hooks/useQueries";
 
 interface Props {
@@ -109,10 +115,7 @@ function UserRow({
             size="sm"
             variant="outline"
             onClick={handleActivate}
-            disabled={
-              activatePremium.isPending ||
-              (profile.isPremium && !profile.pendingPremium)
-            }
+            disabled={activatePremium.isPending || done}
             className="text-xs h-7 border-border hover:bg-secondary hover:text-foreground"
           >
             {activatePremium.isPending ? (
@@ -128,9 +131,136 @@ function UserRow({
   );
 }
 
+function PremiumCodesTab() {
+  const premiumCodes = useGetPremiumCodes();
+  const createCode = useCreatePremiumCode();
+  const [codeInput, setCodeInput] = useState("");
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = codeInput.trim();
+    if (!trimmed) return;
+    try {
+      await createCode.mutateAsync(trimmed);
+      toast.success(`Код "${trimmed}" создан`);
+      setCodeInput("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка создания кода";
+      toast.error(msg);
+    }
+  };
+
+  function formatCodeDate(time: bigint): string {
+    const ms = Number(time / BigInt(1_000_000));
+    return new Date(ms).toLocaleDateString("ru-RU", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Create form */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+          <Plus className="w-4 h-4 text-primary" />
+          Создать код Premium
+        </p>
+        <form onSubmit={handleCreate} className="flex gap-2">
+          <Input
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            placeholder="Введите код, напр. PROMO2024"
+            className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
+          />
+          <Button
+            type="submit"
+            disabled={createCode.isPending || !codeInput.trim()}
+            className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+          >
+            {createCode.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
+            <span className="ml-1 hidden sm:inline">Создать</span>
+          </Button>
+        </form>
+      </div>
+
+      {/* Codes list */}
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        {premiumCodes.isLoading ? (
+          <div className="p-6 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-10 w-full bg-secondary" />
+            ))}
+          </div>
+        ) : !premiumCodes.data?.length ? (
+          <div className="p-8 text-center text-muted-foreground">
+            <Key className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm">Кодов пока нет. Создайте первый!</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-muted-foreground text-xs font-medium">
+                  Код
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs font-medium">
+                  Создан
+                </TableHead>
+                <TableHead className="text-muted-foreground text-xs font-medium">
+                  Статус
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {premiumCodes.data.map((item) => (
+                <TableRow
+                  key={item.code}
+                  className="border-border hover:bg-secondary/30 transition-colors"
+                >
+                  <TableCell className="font-mono text-sm font-bold text-foreground">
+                    {item.code}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatCodeDate(item.createdAt)}
+                  </TableCell>
+                  <TableCell>
+                    {item.isUsed ? (
+                      <Badge variant="secondary" className="text-xs">
+                        Использован
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-primary/10 text-primary border-primary/30 text-xs">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Активен
+                      </Badge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AdminPanel({ onLogout }: Props) {
   const allUsers = useGetAllUsers();
   const pendingRequests = useGetPendingPremiumRequests();
+  const { identity, login, clear, isLoggingIn } = useInternetIdentity();
+  const isAuthenticated = !!identity;
+
+  const handleLogout = () => {
+    clear();
+    onLogout();
+  };
 
   return (
     <div className="min-h-screen bg-background bg-mesh">
@@ -153,7 +283,7 @@ export function AdminPanel({ onLogout }: Props) {
             </div>
             <Button
               variant="ghost"
-              onClick={onLogout}
+              onClick={handleLogout}
               className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
             >
               <LogOut className="w-4 h-4" />
@@ -163,19 +293,50 @@ export function AdminPanel({ onLogout }: Props) {
         </header>
 
         <main className="max-w-5xl mx-auto px-4 py-8">
-          {/* Warning about auth */}
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex gap-3 items-start bg-accent/5 border border-accent/20 rounded-lg p-4 text-sm"
-          >
-            <AlertCircle className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-            <p className="text-muted-foreground">
-              Для работы функций активации Premium необходимо войти через
-              Internet Identity. Если вы не авторизованы, запросы к бэкенду
-              могут не выполниться.
-            </p>
-          </motion.div>
+          {/* Auth status banner */}
+          {!isAuthenticated ? (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 flex gap-3 items-center justify-between bg-destructive/5 border border-destructive/20 rounded-lg p-4"
+            >
+              <div className="flex gap-3 items-start">
+                <Shield className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Нет входа через Internet Identity
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Нажмите "Войти" чтобы видеть пользователей и создавать коды
+                    Premium
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={login}
+                disabled={isLoggingIn}
+                className="shrink-0 bg-primary text-primary-foreground hover:opacity-90 gap-2"
+              >
+                {isLoggingIn ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <LogIn className="w-4 h-4" />
+                )}
+                Войти
+              </Button>
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 flex gap-3 items-center bg-primary/5 border border-primary/20 rounded-lg p-3"
+            >
+              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                Авторизован. Все функции доступны.
+              </p>
+            </motion.div>
+          )}
 
           <Tabs defaultValue="users" className="space-y-6">
             <TabsList className="bg-secondary/50 border border-border">
@@ -202,6 +363,13 @@ export function AdminPanel({ onLogout }: Props) {
                     {pendingRequests.data.length}
                   </span>
                 )}
+              </TabsTrigger>
+              <TabsTrigger
+                value="codes"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+              >
+                <Key className="w-4 h-4" />
+                Коды Premium
               </TabsTrigger>
             </TabsList>
 
@@ -257,6 +425,11 @@ export function AdminPanel({ onLogout }: Props) {
                   </Table>
                 )}
               </div>
+            </TabsContent>
+
+            {/* Premium Codes Tab */}
+            <TabsContent value="codes">
+              <PremiumCodesTab />
             </TabsContent>
 
             {/* Pending Tab */}

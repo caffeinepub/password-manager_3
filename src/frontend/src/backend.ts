@@ -99,6 +99,11 @@ export interface PasswordEntry {
     notes: string;
 }
 export type Time = bigint;
+export interface PremiumCode {
+    code: string;
+    createdAt: Time;
+    isUsed: boolean;
+}
 export interface UserProfile {
     premiumUntil?: Time;
     isPremium: boolean;
@@ -112,20 +117,25 @@ export enum UserRole {
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
     activatePremium(user: Principal): Promise<void>;
+    addDefaultProfile(): Promise<void>;
     addEntry(title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
+    createPremiumCode(code: string): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
     getAllUsers(): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getEntries(): Promise<Array<PasswordEntry>>;
-    getMyProfile(): Promise<UserProfile>;
+    getMyProfile(): Promise<UserProfile | null>;
     getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>>;
+    getPremiumCodes(): Promise<Array<PremiumCode>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    redeemPremiumCode(code: string): Promise<void>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;
+    validateCode(code: string): Promise<boolean>;
 }
 import type { Time as _Time, UserProfile as _UserProfile, UserRole as _UserRole } from "./declarations/backend.did.d.ts";
 export class Backend implements backendInterface {
@@ -158,6 +168,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addDefaultProfile(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addDefaultProfile();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addDefaultProfile();
+            return result;
+        }
+    }
     async addEntry(arg0: string, arg1: string, arg2: string, arg3: string, arg4: string): Promise<void> {
         if (this.processError) {
             try {
@@ -183,6 +207,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            return result;
+        }
+    }
+    async createPremiumCode(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.createPremiumCode(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.createPremiumCode(arg0);
             return result;
         }
     }
@@ -256,18 +294,18 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getMyProfile(): Promise<UserProfile> {
+    async getMyProfile(): Promise<UserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getMyProfile();
-                return from_candid_UserProfile_n5(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n8(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getMyProfile();
-            return from_candid_UserProfile_n5(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n8(this._uploadFile, this._downloadFile, result);
         }
     }
     async getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>> {
@@ -282,6 +320,20 @@ export class Backend implements backendInterface {
         } else {
             const result = await this.actor.getPendingPremiumRequests();
             return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
+        }
+    }
+    async getPremiumCodes(): Promise<Array<PremiumCode>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPremiumCodes();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPremiumCodes();
+            return result;
         }
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
@@ -309,6 +361,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.isCallerAdmin();
+            return result;
+        }
+    }
+    async redeemPremiumCode(arg0: string): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.redeemPremiumCode(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.redeemPremiumCode(arg0);
             return result;
         }
     }
@@ -351,6 +417,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.updateEntry(arg0, arg1, arg2, arg3, arg4, arg5);
+            return result;
+        }
+    }
+    async validateCode(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.validateCode(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.validateCode(arg0);
             return result;
         }
     }
