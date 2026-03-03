@@ -16,12 +16,16 @@ import {
   CheckCircle2,
   Clock,
   Crown,
+  Dices,
   Key,
   Loader2,
   LogIn,
   LogOut,
+  Phone,
   Plus,
+  RefreshCw,
   Shield,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
@@ -74,15 +78,29 @@ function UserRow({
       toast.success("Premium активирован");
     } catch {
       toast.error(
-        "Ошибка активации. Возможно, нужна аутентификация через Internet Identity.",
+        "Для активации Premium войдите через Internet Identity в панели администратора",
       );
     }
   };
 
   return (
     <TableRow className="border-border hover:bg-secondary/30 transition-colors">
-      <TableCell className="font-mono text-xs text-muted-foreground">
-        <span title={principal.toString()}>{truncatePrincipal(principal)}</span>
+      <TableCell className="text-xs text-muted-foreground">
+        {profile.phone ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="font-semibold text-foreground flex items-center gap-1">
+              <Phone className="w-3 h-3 text-primary" />
+              {profile.phone}
+            </span>
+            <span className="font-mono opacity-60" title={principal.toString()}>
+              {truncatePrincipal(principal)}
+            </span>
+          </div>
+        ) : (
+          <span className="font-mono" title={principal.toString()}>
+            {truncatePrincipal(principal)}
+          </span>
+        )}
       </TableCell>
       <TableCell>
         {profile.isPremium ? (
@@ -131,7 +149,25 @@ function UserRow({
   );
 }
 
-function PremiumCodesTab() {
+interface PremiumCodesTabProps {
+  isAuthenticated: boolean;
+  login: () => void;
+  isLoggingIn: boolean;
+}
+
+function generateRandomCode(): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const suffix = Array.from({ length: 5 }, () =>
+    chars.charAt(Math.floor(Math.random() * chars.length)),
+  ).join("");
+  return `PROMO${suffix}`;
+}
+
+function PremiumCodesTab({
+  isAuthenticated,
+  login,
+  isLoggingIn,
+}: PremiumCodesTabProps) {
   const premiumCodes = useGetPremiumCodes();
   const createCode = useCreatePremiumCode();
   const [codeInput, setCodeInput] = useState("");
@@ -150,6 +186,22 @@ function PremiumCodesTab() {
     }
   };
 
+  const handleGenerateAndFill = () => {
+    setCodeInput(generateRandomCode());
+  };
+
+  const handleCreateRandom = async () => {
+    const code = generateRandomCode();
+    try {
+      await createCode.mutateAsync(code);
+      toast.success(`Случайный код "${code}" создан`);
+      setCodeInput("");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка создания кода";
+      toast.error(msg);
+    }
+  };
+
   function formatCodeDate(time: bigint): string {
     const ms = Number(time / BigInt(1_000_000));
     return new Date(ms).toLocaleDateString("ru-RU", {
@@ -161,33 +213,101 @@ function PremiumCodesTab() {
 
   return (
     <div className="space-y-4">
-      {/* Create form */}
-      <div className="rounded-xl border border-border bg-card p-4">
-        <p className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary" />
-          Создать код Premium
-        </p>
-        <form onSubmit={handleCreate} className="flex gap-2">
-          <Input
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            placeholder="Введите код, напр. PROMO2024"
-            className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-          />
+      {/* Auth gate */}
+      {!isAuthenticated ? (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.97 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-xl border border-primary/30 bg-primary/5 p-6 text-center space-y-4"
+          data-ocid="codes.auth.card"
+        >
+          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+            <Key className="w-6 h-6 text-primary" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground">
+              Требуется Internet Identity
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Войдите через Internet Identity, чтобы создавать коды Premium
+            </p>
+          </div>
           <Button
-            type="submit"
-            disabled={createCode.isPending || !codeInput.trim()}
-            className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+            onClick={login}
+            disabled={isLoggingIn}
+            className="bg-primary text-primary-foreground hover:opacity-90 gap-2"
+            data-ocid="codes.auth.submit_button"
           >
-            {createCode.isPending ? (
+            {isLoggingIn ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Plus className="w-4 h-4" />
+              <LogIn className="w-4 h-4" />
             )}
-            <span className="ml-1 hidden sm:inline">Создать</span>
+            Войти через Internet Identity
           </Button>
-        </form>
-      </div>
+        </motion.div>
+      ) : (
+        /* Create form */
+        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Plus className="w-4 h-4 text-primary" />
+            Создать код Premium
+          </p>
+
+          {/* Manual input form */}
+          <form onSubmit={handleCreate} className="flex gap-2">
+            <Input
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+              placeholder="Введите код, напр. PROMO2024"
+              className="bg-secondary border-border text-foreground placeholder:text-muted-foreground font-mono"
+              data-ocid="codes.input"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGenerateAndFill}
+              title="Сгенерировать случайный код"
+              className="border-border hover:bg-secondary shrink-0 gap-1.5"
+              data-ocid="codes.generate.button"
+            >
+              <Dices className="w-4 h-4" />
+              <span className="hidden sm:inline text-xs">Генерировать</span>
+            </Button>
+            <Button
+              type="submit"
+              disabled={createCode.isPending || !codeInput.trim()}
+              className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+              data-ocid="codes.submit_button"
+            >
+              {createCode.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Plus className="w-4 h-4" />
+              )}
+              <span className="ml-1 hidden sm:inline">Создать</span>
+            </Button>
+          </form>
+
+          {/* One-click random */}
+          <div className="pt-1 border-t border-border/50">
+            <Button
+              variant="outline"
+              onClick={handleCreateRandom}
+              disabled={createCode.isPending}
+              className="w-full border-dashed border-border hover:bg-secondary gap-2 text-sm"
+              data-ocid="codes.random.primary_button"
+            >
+              {createCode.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 text-primary" />
+              )}
+              Создать случайный код (одним нажатием)
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Codes list */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -254,12 +374,30 @@ function PremiumCodesTab() {
 export function AdminPanel({ onLogout }: Props) {
   const allUsers = useGetAllUsers();
   const pendingRequests = useGetPendingPremiumRequests();
+  const premiumCodes = useGetPremiumCodes();
   const { identity, login, clear, isLoggingIn } = useInternetIdentity();
   const isAuthenticated = !!identity;
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleLogout = () => {
     clear();
     onLogout();
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        allUsers.refetch(),
+        pendingRequests.refetch(),
+        premiumCodes.refetch(),
+      ]);
+      toast.success("Данные обновлены");
+    } catch {
+      toast.error("Ошибка обновления");
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   return (
@@ -281,14 +419,28 @@ export function AdminPanel({ onLogout }: Props) {
                 </p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Выйти</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+                title="Обновить данные"
+                data-ocid="admin.refresh_button"
+                className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary w-9 h-9 p-0"
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`}
+                />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleLogout}
+                className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Выйти</span>
+              </Button>
+            </div>
           </div>
         </header>
 
@@ -429,7 +581,11 @@ export function AdminPanel({ onLogout }: Props) {
 
             {/* Premium Codes Tab */}
             <TabsContent value="codes">
-              <PremiumCodesTab />
+              <PremiumCodesTab
+                isAuthenticated={isAuthenticated}
+                login={login}
+                isLoggingIn={isLoggingIn}
+              />
             </TabsContent>
 
             {/* Pending Tab */}

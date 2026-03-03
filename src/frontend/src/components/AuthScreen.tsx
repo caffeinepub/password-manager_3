@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
-import { Eye, Key, Lock, Shield, Zap } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, Key, Lock, Phone, Shield, Zap } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useActor } from "../hooks/useActor";
 import { AdminLoginModal } from "./AdminLoginModal";
 
 function TelegramIcon({ className }: { className?: string }) {
@@ -33,6 +34,15 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 interface Props {
   onAdminLogin: () => void;
+  onPhoneLogin: (phone: string) => void;
+}
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(`${password}passvault_salt`);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const FEATURES = [
@@ -53,14 +63,137 @@ const FEATURES = [
   },
 ];
 
-export function AuthScreen({ onAdminLogin }: Props) {
-  const { login, isLoggingIn, isInitializing } = useInternetIdentity();
+export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
+  const { actor } = useActor();
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [showAdminLogin, setShowAdminLogin] = useState(false);
+
+  // Login state
+  const [loginPhone, setLoginPhone] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginShowPwd, setLoginShowPwd] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Register state
+  const [regPhone, setRegPhone] = useState("");
+  const [regPassword, setRegPassword] = useState("");
+  const [regConfirm, setRegConfirm] = useState("");
+  const [regShowPwd, setRegShowPwd] = useState(false);
+  const [regShowConfirm, setRegShowConfirm] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [regLoading, setRegLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginPhone.trim() || !loginPassword.trim()) {
+      setLoginError("Введите номер телефона и пароль");
+      return;
+    }
+    if (!actor) {
+      setLoginError("Соединение с сервером не установлено. Попробуйте позже.");
+      return;
+    }
+    setLoginLoading(true);
+    setLoginError("");
+    try {
+      const hash = await hashPassword(loginPassword);
+      const success = await actor.loginPhoneUser(loginPhone.trim(), hash);
+      if (success) {
+        const session = JSON.stringify({
+          phone: loginPhone.trim(),
+          passwordHash: hash,
+          principalStr: "",
+        });
+        localStorage.setItem("phoneSession", session);
+        onPhoneLogin(loginPhone.trim());
+      } else {
+        setLoginError("Неверный номер или пароль");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Phone not found")) {
+        setLoginError(
+          "Номер телефона не найден. Пожалуйста, зарегистрируйтесь.",
+        );
+      } else if (msg.includes("Invalid phone or password")) {
+        setLoginError(
+          "Неверный номер или пароль. Проверьте и попробуйте снова.",
+        );
+      } else if (msg.includes("User profile not found")) {
+        setLoginError(
+          "Ошибка данных аккаунта. Пожалуйста, зарегистрируйтесь заново с тем же номером телефона.",
+        );
+      } else {
+        setLoginError("Ошибка подключения. Попробуйте ещё раз.");
+      }
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!regPhone.trim()) {
+      setRegError("Введите номер телефона");
+      return;
+    }
+    if (regPassword.length < 6) {
+      setRegError("Пароль должен содержать не менее 6 символов");
+      return;
+    }
+    if (regPassword !== regConfirm) {
+      setRegError("Пароли не совпадают");
+      return;
+    }
+    if (!actor) {
+      setRegError("Соединение с сервером не установлено. Попробуйте позже.");
+      return;
+    }
+    setRegLoading(true);
+    setRegError("");
+    try {
+      const hash = await hashPassword(regPassword);
+      const success = await actor.registerPhoneUser(regPhone.trim(), hash);
+      if (success) {
+        // Auto-login after registration
+        const loginSuccess = await actor.loginPhoneUser(regPhone.trim(), hash);
+        if (loginSuccess) {
+          const session = JSON.stringify({
+            phone: regPhone.trim(),
+            passwordHash: hash,
+            principalStr: "",
+          });
+          localStorage.setItem("phoneSession", session);
+          onPhoneLogin(regPhone.trim());
+        } else {
+          setActiveTab("login");
+          setLoginPhone(regPhone.trim());
+          setRegPhone("");
+          setRegPassword("");
+          setRegConfirm("");
+        }
+      } else {
+        setRegError("Этот номер уже зарегистрирован");
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes("Phone already registered")) {
+        setRegError("Этот номер уже зарегистрирован");
+      } else if (msg.includes("Phone must start with +")) {
+        setRegError("Номер телефона должен начинаться с +");
+      } else {
+        setRegError("Ошибка подключения. Попробуйте ещё раз.");
+      }
+    } finally {
+      setRegLoading(false);
+    }
+  };
 
   return (
     <>
       <div className="min-h-screen bg-background bg-mesh flex flex-col">
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 py-8">
           {/* Logo */}
           <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
@@ -80,7 +213,7 @@ export function AuthScreen({ onAdminLogin }: Props) {
             </p>
           </motion.div>
 
-          {/* Features */}
+          {/* Auth card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -89,59 +222,245 @@ export function AuthScreen({ onAdminLogin }: Props) {
               delay: 0.15,
               ease: [0.22, 1, 0.36, 1],
             }}
-            className="w-full max-w-sm space-y-2.5 mb-8"
+            className="w-full max-w-sm"
           >
-            {FEATURES.map(({ icon: Icon, title, desc }, i) => (
-              <motion.div
-                key={title}
-                initial={{ opacity: 0, x: -16 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.2 + i * 0.07 }}
-                className="flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border/50"
+            {/* Tabs */}
+            <div className="flex rounded-xl overflow-hidden border border-border bg-secondary/30 mb-5">
+              <button
+                type="button"
+                data-ocid="auth.login_tab"
+                onClick={() => {
+                  setActiveTab("login");
+                  setLoginError("");
+                }}
+                className={`flex-1 py-2.5 text-sm font-semibold transition-all ${
+                  activeTab === "login"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <Icon className="w-4 h-4 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    {title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* Login Button */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-            className="w-full max-w-sm space-y-3"
-          >
-            <Button
-              onClick={login}
-              disabled={isLoggingIn || isInitializing}
-              size="lg"
-              className="w-full h-12 bg-primary text-primary-foreground hover:opacity-90 font-display font-semibold text-base gap-2 glow-emerald transition-all"
-            >
-              <Shield className="w-5 h-5" />
-              {isLoggingIn ? "Подключение..." : "Войти через Internet Identity"}
-            </Button>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted-foreground">или</span>
-              <div className="flex-1 h-px bg-border" />
+                Вход
+              </button>
+              <button
+                type="button"
+                data-ocid="auth.register_tab"
+                onClick={() => {
+                  setActiveTab("register");
+                  setRegError("");
+                }}
+                className={`flex-1 py-2.5 text-sm font-semibold transition-all ${
+                  activeTab === "register"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Регистрация
+              </button>
             </div>
 
-            <p className="text-xs text-center text-muted-foreground">
-              Войдите с помощью{" "}
-              <span className="text-foreground font-medium">
-                Internet Identity
-              </span>{" "}
-              — безопасная и анонимная авторизация без паролей
-            </p>
+            {/* Login form */}
+            {activeTab === "login" && (
+              <motion.form
+                key="login"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleLogin}
+                className="space-y-3"
+              >
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.phone_input"
+                    type="tel"
+                    placeholder="+992 XX XXX XXXX"
+                    value={loginPhone}
+                    onChange={(e) => setLoginPhone(e.target.value)}
+                    className="pl-9 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="tel"
+                    disabled={loginLoading}
+                  />
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.password_input"
+                    type={loginShowPwd ? "text" : "password"}
+                    placeholder="Пароль"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="pl-9 pr-10 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="current-password"
+                    disabled={loginLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setLoginShowPwd((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                    aria-label={
+                      loginShowPwd ? "Скрыть пароль" : "Показать пароль"
+                    }
+                  >
+                    {loginShowPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+
+                {loginError && (
+                  <p
+                    data-ocid="auth.login_error"
+                    className="text-xs text-destructive px-1"
+                  >
+                    {loginError}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  data-ocid="auth.login_submit_button"
+                  disabled={loginLoading}
+                  size="lg"
+                  className="w-full h-12 bg-primary text-primary-foreground hover:opacity-90 font-display font-semibold text-base gap-2 glow-emerald transition-all"
+                >
+                  <Shield className="w-5 h-5" />
+                  {loginLoading ? "Вход..." : "Войти"}
+                </Button>
+              </motion.form>
+            )}
+
+            {/* Register form */}
+            {activeTab === "register" && (
+              <motion.form
+                key="register"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.25 }}
+                onSubmit={handleRegister}
+                className="space-y-3"
+              >
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.reg_phone_input"
+                    type="tel"
+                    placeholder="+992 XX XXX XXXX"
+                    value={regPhone}
+                    onChange={(e) => setRegPhone(e.target.value)}
+                    className="pl-9 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="tel"
+                    disabled={regLoading}
+                  />
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.reg_password_input"
+                    type={regShowPwd ? "text" : "password"}
+                    placeholder="Пароль (мин. 6 символов)"
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="pl-9 pr-10 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="new-password"
+                    disabled={regLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRegShowPwd((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                    aria-label={
+                      regShowPwd ? "Скрыть пароль" : "Показать пароль"
+                    }
+                  >
+                    {regShowPwd ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.reg_confirm_input"
+                    type={regShowConfirm ? "text" : "password"}
+                    placeholder="Повторите пароль"
+                    value={regConfirm}
+                    onChange={(e) => setRegConfirm(e.target.value)}
+                    className="pl-9 pr-10 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="new-password"
+                    disabled={regLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRegShowConfirm((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    tabIndex={-1}
+                    aria-label={
+                      regShowConfirm ? "Скрыть пароль" : "Показать пароль"
+                    }
+                  >
+                    {regShowConfirm ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+
+                {regError && (
+                  <p
+                    data-ocid="auth.reg_error"
+                    className="text-xs text-destructive px-1"
+                  >
+                    {regError}
+                  </p>
+                )}
+
+                <Button
+                  type="submit"
+                  data-ocid="auth.register_submit_button"
+                  disabled={regLoading}
+                  size="lg"
+                  className="w-full h-12 bg-primary text-primary-foreground hover:opacity-90 font-display font-semibold text-base gap-2 glow-emerald transition-all"
+                >
+                  <Shield className="w-5 h-5" />
+                  {regLoading ? "Регистрация..." : "Зарегистрироваться"}
+                </Button>
+              </motion.form>
+            )}
+
+            {/* Features */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mt-6 space-y-2"
+            >
+              {FEATURES.map(({ icon: Icon, title, desc }, i) => (
+                <motion.div
+                  key={title}
+                  initial={{ opacity: 0, x: -16 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: 0.35 + i * 0.07 }}
+                  className="flex items-center gap-3 p-2.5 rounded-xl bg-secondary/20 border border-border/40"
+                >
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Icon className="w-3.5 h-3.5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">
+                      {title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">{desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
           </motion.div>
         </div>
 
@@ -186,6 +505,7 @@ export function AuthScreen({ onAdminLogin }: Props) {
           </p>
           <button
             type="button"
+            data-ocid="auth.admin_login_button"
             onClick={() => setShowAdminLogin(true)}
             className="text-xs text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors flex items-center gap-1.5"
           >

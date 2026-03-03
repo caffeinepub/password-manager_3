@@ -17,6 +17,7 @@ export const Time = IDL.Int;
 export const UserProfile = IDL.Record({
   'premiumUntil' : IDL.Opt(Time),
   'isPremium' : IDL.Bool,
+  'phone' : IDL.Opt(IDL.Text),
   'pendingPremium' : IDL.Bool,
 });
 export const PasswordEntry = IDL.Record({
@@ -60,6 +61,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
       ['query'],
     ),
+  'getPhoneByPrincipal' : IDL.Func(
+      [IDL.Principal],
+      [IDL.Opt(IDL.Text)],
+      ['query'],
+    ),
   'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
@@ -67,7 +73,9 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+  'loginPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
+  'registerPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'requestPremium' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'updateEntry' : IDL.Func(
@@ -90,6 +98,7 @@ export const idlFactory = ({ IDL }) => {
   const UserProfile = IDL.Record({
     'premiumUntil' : IDL.Opt(Time),
     'isPremium' : IDL.Bool,
+    'phone' : IDL.Opt(IDL.Text),
     'pendingPremium' : IDL.Bool,
   });
   const PasswordEntry = IDL.Record({
@@ -133,6 +142,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
         ['query'],
       ),
+    'getPhoneByPrincipal' : IDL.Func(
+        [IDL.Principal],
+        [IDL.Opt(IDL.Text)],
+        ['query'],
+      ),
     'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
@@ -140,7 +154,9 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
+    'loginPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
+    'registerPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'requestPremium' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'updateEntry' : IDL.Func(

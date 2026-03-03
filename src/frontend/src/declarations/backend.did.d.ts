@@ -28,6 +28,7 @@ export type Time = bigint;
 export interface UserProfile {
   'premiumUntil' : [] | [Time],
   'isPremium' : boolean,
+  'phone' : [] | [string],
   'pendingPremium' : boolean,
 }
 export type UserRole = { 'admin' : null } |
@@ -50,10 +51,13 @@ export interface _SERVICE {
     [],
     Array<[Principal, UserProfile]>
   >,
+  'getPhoneByPrincipal' : ActorMethod<[Principal], [] | [string]>,
   'getPremiumCodes' : ActorMethod<[], Array<PremiumCode>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
+  'loginPhoneUser' : ActorMethod<[string, string], boolean>,
   'redeemPremiumCode' : ActorMethod<[string], undefined>,
+  'registerPhoneUser' : ActorMethod<[string, string], boolean>,
   'requestPremium' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateEntry' : ActorMethod<

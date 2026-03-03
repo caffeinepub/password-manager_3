@@ -3,17 +3,41 @@ import { useEffect, useState } from "react";
 import { AdminPanel } from "./components/AdminPanel";
 import { AuthScreen } from "./components/AuthScreen";
 import { Dashboard } from "./components/Dashboard";
-import { useInternetIdentity } from "./hooks/useInternetIdentity";
+
+interface PhoneSession {
+  phone: string;
+  passwordHash?: string;
+  principalStr: string;
+}
 
 function AppContent() {
-  const { identity, isInitializing } = useInternetIdentity();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPhoneLoggedIn, setIsPhoneLoggedIn] = useState(false);
+  const [phone, setPhone] = useState<string>("");
+  const [passwordHash, setPasswordHash] = useState<string>("");
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    const session = localStorage.getItem("adminSession");
-    if (session === "true") {
+    const adminSession = localStorage.getItem("adminSession");
+    if (adminSession === "true") {
       setIsAdmin(true);
     }
+
+    const phoneSessionRaw = localStorage.getItem("phoneSession");
+    if (phoneSessionRaw) {
+      try {
+        const session: PhoneSession = JSON.parse(phoneSessionRaw);
+        if (session.phone) {
+          setPhone(session.phone);
+          setPasswordHash(session.passwordHash ?? "");
+          setIsPhoneLoggedIn(true);
+        }
+      } catch {
+        localStorage.removeItem("phoneSession");
+      }
+    }
+
+    setIsInitializing(false);
   }, []);
 
   const handleAdminLogin = () => {
@@ -23,6 +47,29 @@ function AppContent() {
   const handleAdminLogout = () => {
     localStorage.removeItem("adminSession");
     setIsAdmin(false);
+  };
+
+  const handlePhoneLogin = (phoneNumber: string) => {
+    const raw = localStorage.getItem("phoneSession");
+    let hash = "";
+    if (raw) {
+      try {
+        const parsed: PhoneSession = JSON.parse(raw);
+        hash = parsed.passwordHash ?? "";
+      } catch {
+        // ignore
+      }
+    }
+    setPhone(phoneNumber);
+    setPasswordHash(hash);
+    setIsPhoneLoggedIn(true);
+  };
+
+  const handlePhoneLogout = () => {
+    localStorage.removeItem("phoneSession");
+    setPhone("");
+    setPasswordHash("");
+    setIsPhoneLoggedIn(false);
   };
 
   if (isInitializing) {
@@ -59,11 +106,22 @@ function AppContent() {
     return <AdminPanel onLogout={handleAdminLogout} />;
   }
 
-  if (identity) {
-    return <Dashboard />;
+  if (isPhoneLoggedIn) {
+    return (
+      <Dashboard
+        phone={phone}
+        passwordHash={passwordHash}
+        onLogout={handlePhoneLogout}
+      />
+    );
   }
 
-  return <AuthScreen onAdminLogin={handleAdminLogin} />;
+  return (
+    <AuthScreen
+      onAdminLogin={handleAdminLogin}
+      onPhoneLogin={handlePhoneLogin}
+    />
+  );
 }
 
 export default function App() {

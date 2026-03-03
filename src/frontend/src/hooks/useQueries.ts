@@ -11,7 +11,11 @@ export function useGetEntries() {
     queryKey: ["entries"],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getEntries();
+      try {
+        return await actor.getEntries();
+      } catch {
+        return [];
+      }
     },
     enabled: !!actor && !isFetching,
   });
@@ -196,6 +200,38 @@ export function useRedeemPremiumCode() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["myProfile"] });
+    },
+  });
+}
+
+export function useRegisterPhoneUser() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async ({
+      phone,
+      passwordHash,
+    }: {
+      phone: string;
+      passwordHash: string;
+    }) => {
+      if (!actor) throw new Error("Нет соединения с сервером");
+      return actor.registerPhoneUser(phone, passwordHash);
+    },
+  });
+}
+
+export function useLoginPhoneUser() {
+  const { actor } = useActor();
+  return useMutation({
+    mutationFn: async ({
+      phone,
+      passwordHash,
+    }: {
+      phone: string;
+      passwordHash: string;
+    }) => {
+      if (!actor) throw new Error("Нет соединения с сервером");
+      return actor.loginPhoneUser(phone, passwordHash);
     },
   });
 }

@@ -7,6 +7,7 @@ import {
   Crown,
   Lock,
   LogOut,
+  Phone,
   Plus,
   RefreshCw,
   Search,
@@ -16,12 +17,12 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import type { PasswordEntry } from "../backend.d";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useGetEntries, useGetMyProfile } from "../hooks/useQueries";
 import { BuyPremiumModal } from "./BuyPremiumModal";
 import { EntryCard } from "./EntryCard";
 import { EntryModal } from "./EntryModal";
 import { PasswordGeneratorModal } from "./PasswordGeneratorModal";
+import { SupportChatBot } from "./SupportChatBot";
 
 function TelegramIcon({ className }: { className?: string }) {
   return (
@@ -87,8 +88,17 @@ function formatPremiumDate(time?: bigint): string {
   });
 }
 
-export function Dashboard() {
-  const { identity, clear } = useInternetIdentity();
+interface DashboardProps {
+  phone?: string;
+  passwordHash?: string;
+  onLogout?: () => void;
+}
+
+export function Dashboard({
+  phone,
+  passwordHash: _passwordHash,
+  onLogout,
+}: DashboardProps) {
   const entries = useGetEntries();
   const profile = useGetMyProfile();
 
@@ -105,16 +115,18 @@ export function Dashboard() {
     setIsRefreshing(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("phoneSession");
+    if (onLogout) onLogout();
+  };
+
   const isPremium = profile.data?.isPremium ?? false;
   const isPending = profile.data?.pendingPremium ?? false;
   const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
   const entryCount = entries.data?.length ?? 0;
   const limitReached = entryCount >= limit;
 
-  const principalStr = identity?.getPrincipal().toString() ?? "";
-  const shortPrincipal = principalStr
-    ? `${principalStr.slice(0, 5)}...${principalStr.slice(-3)}`
-    : "";
+  const displayIdentifier = phone ? phone : "";
 
   const filteredEntries = (entries.data ?? []).filter(
     (e) =>
@@ -146,9 +158,12 @@ export function Dashboard() {
                   Premium
                 </Badge>
               )}
-              <span className="text-xs text-muted-foreground hidden md:block font-mono">
-                {shortPrincipal}
-              </span>
+              {displayIdentifier && (
+                <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
+                  <Phone className="w-3 h-3" />
+                  {displayIdentifier}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -164,7 +179,8 @@ export function Dashboard() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={clear}
+                onClick={handleLogout}
+                data-ocid="dashboard.logout_button"
                 className="gap-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary h-8"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -388,6 +404,8 @@ export function Dashboard() {
         open={showGenerator}
         onClose={() => setShowGenerator(false)}
       />
+
+      <SupportChatBot />
     </div>
   );
 }

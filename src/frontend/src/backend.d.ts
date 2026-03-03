@@ -25,6 +25,7 @@ export interface PremiumCode {
 export interface UserProfile {
     premiumUntil?: Time;
     isPremium: boolean;
+    phone?: string;
     pendingPremium: boolean;
 }
 export enum UserRole {
@@ -45,10 +46,13 @@ export interface backendInterface {
     getEntries(): Promise<Array<PasswordEntry>>;
     getMyProfile(): Promise<UserProfile | null>;
     getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>>;
+    getPhoneByPrincipal(user: Principal): Promise<string | null>;
     getPremiumCodes(): Promise<Array<PremiumCode>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
+    loginPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
     redeemPremiumCode(code: string): Promise<void>;
+    registerPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;

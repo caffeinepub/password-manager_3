@@ -1,46 +1,30 @@
 import List "mo:core/List";
 import Map "mo:core/Map";
+import Nat "mo:core/Nat";
+import Text "mo:core/Text";
+import Blob "mo:core/Blob";
 import Time "mo:core/Time";
 import Array "mo:core/Array";
-import Iter "mo:core/Iter";
-import Text "mo:core/Text";
 import Int "mo:core/Int";
+import Order "mo:core/Order";
 import Runtime "mo:core/Runtime";
 import Principal "mo:core/Principal";
-import Order "mo:core/Order";
+import Iter "mo:core/Iter";
 import MixinAuthorization "authorization/MixinAuthorization";
-import AccessControl "authorization/access-control";
 
+import AccessControl "authorization/access-control";
 
 
 actor {
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  type PremiumCode = {
-    code : Text;
-    isUsed : Bool;
-    createdAt : Time.Time;
-  };
   module PremiumCode {
     public func compare(code1 : PremiumCode, code2 : PremiumCode) : Order.Order {
       Int.compare(code1.createdAt, code2.createdAt);
     };
   };
-  public type UserProfile = {
-    isPremium : Bool;
-    premiumUntil : ?Time.Time;
-    pendingPremium : Bool;
-  };
-  public type PasswordEntry = {
-    id : Nat;
-    title : Text;
-    url : Text;
-    username : Text;
-    password : Text;
-    notes : Text;
-    createdAt : Time.Time;
-  };
+
   module PasswordEntry {
     public func compare(entry1 : PasswordEntry, entry2 : PasswordEntry) : Order.Order {
       switch (Text.compare(entry1.title, entry2.title)) {
@@ -50,25 +34,119 @@ actor {
     };
   };
 
+  public type UserProfile = {
+    phone : ?Text;
+    isPremium : Bool;
+    premiumUntil : ?Time.Time;
+    pendingPremium : Bool;
+  };
+
+  public type PhoneUser = {
+    phone : Text;
+    passwordHash : Text;
+    principalId : Principal;
+    createdAt : Time.Time;
+  };
+
+  public type PremiumCode = {
+    code : Text;
+    isUsed : Bool;
+    createdAt : Time.Time;
+  };
+
+  public type PasswordEntry = {
+    id : Nat;
+    title : Text;
+    url : Text;
+    username : Text;
+    password : Text;
+    notes : Text;
+    createdAt : Time.Time;
+  };
+
   type UserProfileState = {
     entries : List.List<PasswordEntry>;
     profile : UserProfile;
   };
 
   let userProfiles = Map.empty<Principal, UserProfileState>();
+  let phoneUsers = Map.empty<Text, PhoneUser>();
   let premiumCodes = Map.empty<Text, PremiumCode>();
 
+  public shared ({ caller }) func registerPhoneUser(phone : Text, passwordHash : Text) : async Bool {
+    // No authorization check - registration should be open to everyone including anonymous
+    if (phone == "" or not phone.startsWith(#char '+')) { Runtime.trap("Phone must start with +") };
+    switch (phoneUsers.get(phone)) {
+      case (?_) { Runtime.trap("Phone already registered") };
+      case (null) {};
+    };
+
+    let phoneUser : PhoneUser = {
+      phone = phone;
+      passwordHash = passwordHash;
+      principalId = caller;
+      createdAt = Time.now();
+    };
+
+    let userProfile = {
+      phone = ?phone;
+      isPremium = false;
+      premiumUntil = null;
+      pendingPremium = false;
+    };
+    let userProfileState = { entries = List.empty<PasswordEntry>(); profile = userProfile };
+
+    userProfiles.add(caller, userProfileState);
+    AccessControl.assignRole(accessControlState, caller, caller, #user);
+    phoneUsers.add(phone, phoneUser);
+    true;
+  };
+
+  public shared ({ caller }) func loginPhoneUser(phone : Text, passwordHash : Text) : async Bool {
+    // No authorization check - login should be open to everyone including anonymous
+    switch (phoneUsers.get(phone)) {
+      case (null) { Runtime.trap("Phone not found") };
+      case (?phoneUser) {
+        if (phoneUser.passwordHash != passwordHash) {
+          Runtime.trap("Invalid phone or password");
+        };
+
+        // Link caller's principal to the original user's profile
+        let originalPrincipal = phoneUser.principalId;
+        switch (userProfiles.get(originalPrincipal)) {
+          case (null) { Runtime.trap("User profile not found") };
+          case (?profileState) {
+            // Copy the profile to the new principal (caller)
+            userProfiles.add(caller, profileState);
+            // Assign user role to the caller
+            AccessControl.assignRole(accessControlState, caller, caller, #user);
+            // Update the phone user mapping to point to the new principal
+            let updatedPhoneUser = {
+              phoneUser with principalId = caller;
+            };
+            phoneUsers.add(phone, updatedPhoneUser);
+          };
+        };
+      };
+    };
+    true;
+  };
+
   public shared ({ caller }) func addDefaultProfile() : async () {
+    // This function should not be publicly accessible without restrictions
+    // Adding authorization check to prevent abuse
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot create profiles directly");
+    };
+
     let defaultProfile = {
+      phone = null;
       isPremium = false;
       premiumUntil = null;
       pendingPremium = false;
     };
     let userProfileState = { entries = List.empty<PasswordEntry>(); profile = defaultProfile };
-    userProfiles.add(
-      caller,
-      userProfileState,
-    );
+    userProfiles.add(caller, userProfileState);
   };
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
@@ -108,9 +186,10 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access profiles");
     };
+
     switch (userProfiles.get(caller)) {
       case (?profileState) { ?profileState.profile };
-      case (null) { null };
+      case null { null };
     };
   };
 
@@ -118,6 +197,7 @@ actor {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access entries");
     };
+
     switch (userProfiles.get(caller)) {
       case (?profileState) { profileState.entries.toArray().sort() };
       case (null) { [] };
@@ -215,8 +295,7 @@ actor {
     switch (userProfiles.get(caller)) {
       case (?profileState) {
         let newProfile = {
-          isPremium = profileState.profile.isPremium;
-          premiumUntil = profileState.profile.premiumUntil;
+          profileState.profile with
           pendingPremium = true;
         };
         let updatedProfileState = { profileState with profile = newProfile };
@@ -224,6 +303,7 @@ actor {
       };
       case (null) {
         let newProfile = {
+          phone = null;
           isPremium = false;
           premiumUntil = null;
           pendingPremium = true;
@@ -265,6 +345,7 @@ actor {
       };
       case (?profileState) {
         let newProfile = {
+          profileState.profile with
           isPremium = true;
           premiumUntil = ?(Time.now() + thirtyDaysInNanos);
           pendingPremium = false;
@@ -321,6 +402,7 @@ actor {
           };
           case (?profileState) {
             let newProfile = {
+              profileState.profile with
               isPremium = true;
               premiumUntil = ?(Time.now() + thirtyDaysInNanos);
               pendingPremium = false;
@@ -337,6 +419,16 @@ actor {
     };
   };
 
+  public query ({ caller }) func getPhoneByPrincipal(user : Principal) : async ?Text {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can get phone numbers");
+    };
+    switch (userProfiles.get(user)) {
+      case (null) { null };
+      case (?profileState) { profileState.profile.phone };
+    };
+  };
+
   func getNextId(caller : Principal, next : Nat) : Nat {
     switch (userProfiles.get(caller)) {
       case (?userProfileState) { userProfileState.entries.size() + next };
@@ -344,4 +436,3 @@ actor {
     };
   };
 };
-
