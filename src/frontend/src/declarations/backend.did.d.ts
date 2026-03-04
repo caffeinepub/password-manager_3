@@ -26,38 +26,42 @@ export interface PremiumCode {
 }
 export type Time = bigint;
 export interface UserProfile {
+  'contact' : [] | [string],
   'premiumUntil' : [] | [Time],
+  'lastLoginAt' : Time,
   'isPremium' : boolean,
-  'phone' : [] | [string],
+  'email' : [] | [string],
+  'loginCount' : bigint,
   'pendingPremium' : boolean,
+  'registeredAt' : Time,
 }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
   { 'guest' : null };
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
-  'activatePremium' : ActorMethod<[Principal], undefined>,
+  'activatePremium' : ActorMethod<[Principal, string], undefined>,
   'addDefaultProfile' : ActorMethod<[], undefined>,
   'addEntry' : ActorMethod<[string, string, string, string, string], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  'createPremiumCode' : ActorMethod<[string], undefined>,
+  'createPremiumCode' : ActorMethod<[string, string], undefined>,
   'deleteEntry' : ActorMethod<[bigint], undefined>,
-  'getAllUsers' : ActorMethod<[], Array<[Principal, UserProfile]>>,
+  'getAllUsers' : ActorMethod<[string], Array<[Principal, UserProfile]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getEmailByPrincipal' : ActorMethod<[Principal, string], [] | [string]>,
   'getEntries' : ActorMethod<[], Array<PasswordEntry>>,
   'getMyProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getPendingPremiumRequests' : ActorMethod<
-    [],
+    [string],
     Array<[Principal, UserProfile]>
   >,
-  'getPhoneByPrincipal' : ActorMethod<[Principal], [] | [string]>,
-  'getPremiumCodes' : ActorMethod<[], Array<PremiumCode>>,
+  'getPremiumCodes' : ActorMethod<[string], Array<PremiumCode>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
-  'loginPhoneUser' : ActorMethod<[string, string], boolean>,
+  'loginEmailUser' : ActorMethod<[string, string], boolean>,
   'redeemPremiumCode' : ActorMethod<[string], undefined>,
-  'registerPhoneUser' : ActorMethod<[string, string], boolean>,
+  'registerEmailUser' : ActorMethod<[string, string, string], boolean>,
   'requestPremium' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'updateEntry' : ActorMethod<

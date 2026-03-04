@@ -13,15 +13,16 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Principal } from "@icp-sdk/core/principal";
 import {
+  CalendarDays,
   CheckCircle2,
   Clock,
   Crown,
   Dices,
   Key,
   Loader2,
-  LogIn,
   LogOut,
-  Phone,
+  Mail,
+  MessageCircle,
   Plus,
   RefreshCw,
   Shield,
@@ -32,7 +33,6 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { UserProfile } from "../backend.d";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import {
   useActivatePremium,
   useCreatePremiumCode,
@@ -40,6 +40,7 @@ import {
   useGetPendingPremiumRequests,
   useGetPremiumCodes,
 } from "../hooks/useQueries";
+import { SupportChatBot } from "./SupportChatBot";
 
 interface Props {
   onLogout: () => void;
@@ -64,44 +65,77 @@ function formatDate(time?: bigint): string {
 function UserRow({
   principal,
   profile,
+  adminPassword,
 }: {
   principal: Principal;
   profile: UserProfile;
+  adminPassword: string;
 }) {
   const activatePremium = useActivatePremium();
   const [done, setDone] = useState(false);
 
   const handleActivate = async () => {
     try {
-      await activatePremium.mutateAsync(principal);
+      await activatePremium.mutateAsync({ user: principal, adminPassword });
       setDone(true);
       toast.success("Premium активирован");
-    } catch {
-      toast.error(
-        "Для активации Premium войдите через Internet Identity в панели администратора",
-      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Ошибка активации";
+      toast.error(msg);
     }
   };
 
   return (
     <TableRow className="border-border hover:bg-secondary/30 transition-colors">
+      {/* Пользователь: email + contact + principal */}
       <TableCell className="text-xs text-muted-foreground">
-        {profile.phone ? (
-          <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-0.5">
+          {profile.email ? (
             <span className="font-semibold text-foreground flex items-center gap-1">
-              <Phone className="w-3 h-3 text-primary" />
-              {profile.phone}
+              <Mail className="w-3 h-3 text-primary shrink-0" />
+              {profile.email}
             </span>
+          ) : (
             <span className="font-mono opacity-60" title={principal.toString()}>
               {truncatePrincipal(principal)}
             </span>
-          </div>
-        ) : (
-          <span className="font-mono" title={principal.toString()}>
+          )}
+          {profile.contact && (
+            <span className="flex items-center gap-1 text-muted-foreground">
+              <MessageCircle className="w-3 h-3 text-accent shrink-0" />
+              <span className="text-[11px]">TG/WA: {profile.contact}</span>
+            </span>
+          )}
+          <span
+            className="font-mono text-[10px] opacity-40"
+            title={principal.toString()}
+          >
             {truncatePrincipal(principal)}
           </span>
-        )}
+        </div>
       </TableCell>
+      {/* Сессий */}
+      <TableCell className="text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Users className="w-3 h-3 text-muted-foreground shrink-0" />
+          {Number(profile.loginCount)}
+        </span>
+      </TableCell>
+      {/* Регистрация */}
+      <TableCell className="text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <CalendarDays className="w-3 h-3 shrink-0" />
+          {formatDate(profile.registeredAt)}
+        </span>
+      </TableCell>
+      {/* Последний вход */}
+      <TableCell className="text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="w-3 h-3 shrink-0" />
+          {formatDate(profile.lastLoginAt)}
+        </span>
+      </TableCell>
+      {/* Статус */}
       <TableCell>
         {profile.isPremium ? (
           <Badge className="bg-[oklch(0.83_0.16_80_/_0.15)] text-[oklch(0.9_0.15_80)] border-[oklch(0.83_0.16_80_/_0.3)] text-xs">
@@ -119,9 +153,11 @@ function UserRow({
           </Badge>
         )}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      {/* Premium до */}
+      <TableCell className="text-xs text-muted-foreground">
         {formatDate(profile.premiumUntil)}
       </TableCell>
+      {/* Действия */}
       <TableCell>
         {done ? (
           <span className="flex items-center gap-1 text-xs text-primary">
@@ -150,9 +186,7 @@ function UserRow({
 }
 
 interface PremiumCodesTabProps {
-  isAuthenticated: boolean;
-  login: () => void;
-  isLoggingIn: boolean;
+  adminPassword: string;
 }
 
 function generateRandomCode(): string {
@@ -163,12 +197,8 @@ function generateRandomCode(): string {
   return `PROMO${suffix}`;
 }
 
-function PremiumCodesTab({
-  isAuthenticated,
-  login,
-  isLoggingIn,
-}: PremiumCodesTabProps) {
-  const premiumCodes = useGetPremiumCodes();
+function PremiumCodesTab({ adminPassword }: PremiumCodesTabProps) {
+  const premiumCodes = useGetPremiumCodes(adminPassword);
   const createCode = useCreatePremiumCode();
   const [codeInput, setCodeInput] = useState("");
 
@@ -177,7 +207,7 @@ function PremiumCodesTab({
     const trimmed = codeInput.trim();
     if (!trimmed) return;
     try {
-      await createCode.mutateAsync(trimmed);
+      await createCode.mutateAsync({ code: trimmed, adminPassword });
       toast.success(`Код "${trimmed}" создан`);
       setCodeInput("");
     } catch (err) {
@@ -193,7 +223,7 @@ function PremiumCodesTab({
   const handleCreateRandom = async () => {
     const code = generateRandomCode();
     try {
-      await createCode.mutateAsync(code);
+      await createCode.mutateAsync({ code, adminPassword });
       toast.success(`Случайный код "${code}" создан`);
       setCodeInput("");
     } catch (err) {
@@ -213,101 +243,66 @@ function PremiumCodesTab({
 
   return (
     <div className="space-y-4">
-      {/* Auth gate */}
-      {!isAuthenticated ? (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.97 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="rounded-xl border border-primary/30 bg-primary/5 p-6 text-center space-y-4"
-          data-ocid="codes.auth.card"
-        >
-          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-            <Key className="w-6 h-6 text-primary" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-foreground">
-              Требуется Internet Identity
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Войдите через Internet Identity, чтобы создавать коды Premium
-            </p>
-          </div>
+      {/* Create form — always visible when admin is logged in */}
+      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+        <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+          <Plus className="w-4 h-4 text-primary" />
+          Создать код Premium
+        </p>
+
+        {/* Manual input form */}
+        <form onSubmit={handleCreate} className="flex gap-2">
+          <Input
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
+            placeholder="Введите код, напр. PROMO2024"
+            className="bg-secondary border-border text-foreground placeholder:text-muted-foreground font-mono"
+            data-ocid="codes.input"
+          />
           <Button
-            onClick={login}
-            disabled={isLoggingIn}
-            className="bg-primary text-primary-foreground hover:opacity-90 gap-2"
-            data-ocid="codes.auth.submit_button"
+            type="button"
+            variant="outline"
+            onClick={handleGenerateAndFill}
+            title="Сгенерировать случайный код"
+            className="border-border hover:bg-secondary shrink-0 gap-1.5"
+            data-ocid="codes.generate.button"
           >
-            {isLoggingIn ? (
+            <Dices className="w-4 h-4" />
+            <span className="hidden sm:inline text-xs">Генерировать</span>
+          </Button>
+          <Button
+            type="submit"
+            disabled={createCode.isPending || !codeInput.trim()}
+            className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
+            data-ocid="codes.submit_button"
+          >
+            {createCode.isPending ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <LogIn className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
             )}
-            Войти через Internet Identity
+            <span className="ml-1 hidden sm:inline">Создать</span>
           </Button>
-        </motion.div>
-      ) : (
-        /* Create form */
-        <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <p className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Plus className="w-4 h-4 text-primary" />
-            Создать код Premium
-          </p>
+        </form>
 
-          {/* Manual input form */}
-          <form onSubmit={handleCreate} className="flex gap-2">
-            <Input
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-              placeholder="Введите код, напр. PROMO2024"
-              className="bg-secondary border-border text-foreground placeholder:text-muted-foreground font-mono"
-              data-ocid="codes.input"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleGenerateAndFill}
-              title="Сгенерировать случайный код"
-              className="border-border hover:bg-secondary shrink-0 gap-1.5"
-              data-ocid="codes.generate.button"
-            >
-              <Dices className="w-4 h-4" />
-              <span className="hidden sm:inline text-xs">Генерировать</span>
-            </Button>
-            <Button
-              type="submit"
-              disabled={createCode.isPending || !codeInput.trim()}
-              className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
-              data-ocid="codes.submit_button"
-            >
-              {createCode.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-4 h-4" />
-              )}
-              <span className="ml-1 hidden sm:inline">Создать</span>
-            </Button>
-          </form>
-
-          {/* One-click random */}
-          <div className="pt-1 border-t border-border/50">
-            <Button
-              variant="outline"
-              onClick={handleCreateRandom}
-              disabled={createCode.isPending}
-              className="w-full border-dashed border-border hover:bg-secondary gap-2 text-sm"
-              data-ocid="codes.random.primary_button"
-            >
-              {createCode.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Sparkles className="w-4 h-4 text-primary" />
-              )}
-              Создать случайный код (одним нажатием)
-            </Button>
-          </div>
+        {/* One-click random */}
+        <div className="pt-1 border-t border-border/50">
+          <Button
+            variant="outline"
+            onClick={handleCreateRandom}
+            disabled={createCode.isPending}
+            className="w-full border-dashed border-border hover:bg-secondary gap-2 text-sm"
+            data-ocid="codes.random.primary_button"
+          >
+            {createCode.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-primary" />
+            )}
+            Создать случайный код (одним нажатием)
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* Codes list */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
@@ -318,7 +313,10 @@ function PremiumCodesTab({
             ))}
           </div>
         ) : !premiumCodes.data?.length ? (
-          <div className="p-8 text-center text-muted-foreground">
+          <div
+            className="p-8 text-center text-muted-foreground"
+            data-ocid="codes.empty_state"
+          >
             <Key className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm">Кодов пока нет. Создайте первый!</p>
           </div>
@@ -372,15 +370,15 @@ function PremiumCodesTab({
 }
 
 export function AdminPanel({ onLogout }: Props) {
-  const allUsers = useGetAllUsers();
-  const pendingRequests = useGetPendingPremiumRequests();
-  const premiumCodes = useGetPremiumCodes();
-  const { identity, login, clear, isLoggingIn } = useInternetIdentity();
-  const isAuthenticated = !!identity;
+  const adminPassword = localStorage.getItem("adminPassword") || "";
+  const allUsers = useGetAllUsers(adminPassword);
+  const pendingRequests = useGetPendingPremiumRequests(adminPassword);
+  const premiumCodes = useGetPremiumCodes(adminPassword);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const handleLogout = () => {
-    clear();
+    localStorage.removeItem("adminSession");
+    localStorage.removeItem("adminPassword");
     onLogout();
   };
 
@@ -420,6 +418,17 @@ export function AdminPanel({ onLogout }: Props) {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {/* Admin status indicator */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="hidden sm:flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-full px-3 py-1"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                <span className="text-xs text-primary font-medium">
+                  Администратор
+                </span>
+              </motion.div>
               <Button
                 variant="ghost"
                 onClick={handleRefresh}
@@ -436,6 +445,7 @@ export function AdminPanel({ onLogout }: Props) {
                 variant="ghost"
                 onClick={handleLogout}
                 className="gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
+                data-ocid="admin.logout.button"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="hidden sm:inline">Выйти</span>
@@ -445,56 +455,12 @@ export function AdminPanel({ onLogout }: Props) {
         </header>
 
         <main className="max-w-5xl mx-auto px-4 py-8">
-          {/* Auth status banner */}
-          {!isAuthenticated ? (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 flex gap-3 items-center justify-between bg-destructive/5 border border-destructive/20 rounded-lg p-4"
-            >
-              <div className="flex gap-3 items-start">
-                <Shield className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-semibold text-foreground">
-                    Нет входа через Internet Identity
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Нажмите "Войти" чтобы видеть пользователей и создавать коды
-                    Premium
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={login}
-                disabled={isLoggingIn}
-                className="shrink-0 bg-primary text-primary-foreground hover:opacity-90 gap-2"
-              >
-                {isLoggingIn ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <LogIn className="w-4 h-4" />
-                )}
-                Войти
-              </Button>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-6 flex gap-3 items-center bg-primary/5 border border-primary/20 rounded-lg p-3"
-            >
-              <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-              <p className="text-sm text-muted-foreground">
-                Авторизован. Все функции доступны.
-              </p>
-            </motion.div>
-          )}
-
           <Tabs defaultValue="users" className="space-y-6">
             <TabsList className="bg-secondary/50 border border-border">
               <TabsTrigger
                 value="users"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+                data-ocid="admin.users.tab"
               >
                 <Users className="w-4 h-4" />
                 Все пользователи
@@ -507,6 +473,7 @@ export function AdminPanel({ onLogout }: Props) {
               <TabsTrigger
                 value="pending"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+                data-ocid="admin.pending.tab"
               >
                 <Clock className="w-4 h-4" />
                 Запросы Premium
@@ -519,6 +486,7 @@ export function AdminPanel({ onLogout }: Props) {
               <TabsTrigger
                 value="codes"
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+                data-ocid="admin.codes.tab"
               >
                 <Key className="w-4 h-4" />
                 Коды Premium
@@ -535,15 +503,21 @@ export function AdminPanel({ onLogout }: Props) {
                     ))}
                   </div>
                 ) : allUsers.isError ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div
+                    className="p-8 text-center text-muted-foreground"
+                    data-ocid="admin.users.error_state"
+                  >
                     <Shield className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">
-                      Нет доступа. Войдите через Internet Identity как
-                      администратор.
+                      Ошибка загрузки пользователей. Попробуйте обновить
+                      страницу.
                     </p>
                   </div>
                 ) : !allUsers.data?.length ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div
+                    className="p-8 text-center text-muted-foreground"
+                    data-ocid="admin.users.empty_state"
+                  >
                     <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">Пользователей пока нет</p>
                   </div>
@@ -552,7 +526,16 @@ export function AdminPanel({ onLogout }: Props) {
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
                         <TableHead className="text-muted-foreground text-xs font-medium">
-                          Principal
+                          Пользователь
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Сессий
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Регистрация
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Последний вход
                         </TableHead>
                         <TableHead className="text-muted-foreground text-xs font-medium">
                           Статус
@@ -571,6 +554,7 @@ export function AdminPanel({ onLogout }: Props) {
                           key={principal.toString()}
                           principal={principal}
                           profile={profile}
+                          adminPassword={adminPassword}
                         />
                       ))}
                     </TableBody>
@@ -581,11 +565,7 @@ export function AdminPanel({ onLogout }: Props) {
 
             {/* Premium Codes Tab */}
             <TabsContent value="codes">
-              <PremiumCodesTab
-                isAuthenticated={isAuthenticated}
-                login={login}
-                isLoggingIn={isLoggingIn}
-              />
+              <PremiumCodesTab adminPassword={adminPassword} />
             </TabsContent>
 
             {/* Pending Tab */}
@@ -598,15 +578,20 @@ export function AdminPanel({ onLogout }: Props) {
                     ))}
                   </div>
                 ) : pendingRequests.isError ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div
+                    className="p-8 text-center text-muted-foreground"
+                    data-ocid="admin.pending.error_state"
+                  >
                     <Shield className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">
-                      Нет доступа. Войдите через Internet Identity как
-                      администратор.
+                      Ошибка загрузки запросов. Попробуйте обновить страницу.
                     </p>
                   </div>
                 ) : !pendingRequests.data?.length ? (
-                  <div className="p-8 text-center text-muted-foreground">
+                  <div
+                    className="p-8 text-center text-muted-foreground"
+                    data-ocid="admin.pending.empty_state"
+                  >
                     <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">Нет ожидающих запросов</p>
                   </div>
@@ -615,7 +600,16 @@ export function AdminPanel({ onLogout }: Props) {
                     <TableHeader>
                       <TableRow className="border-border hover:bg-transparent">
                         <TableHead className="text-muted-foreground text-xs font-medium">
-                          Principal
+                          Пользователь
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Сессий
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Регистрация
+                        </TableHead>
+                        <TableHead className="text-muted-foreground text-xs font-medium">
+                          Последний вход
                         </TableHead>
                         <TableHead className="text-muted-foreground text-xs font-medium">
                           Статус
@@ -634,6 +628,7 @@ export function AdminPanel({ onLogout }: Props) {
                           key={principal.toString()}
                           principal={principal}
                           profile={profile}
+                          adminPassword={adminPassword}
                         />
                       ))}
                     </TableBody>
@@ -659,6 +654,8 @@ export function AdminPanel({ onLogout }: Props) {
           </div>
         </footer>
       </div>
+
+      <SupportChatBot />
     </div>
   );
 }

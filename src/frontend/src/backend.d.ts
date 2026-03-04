@@ -23,10 +23,14 @@ export interface PremiumCode {
     isUsed: boolean;
 }
 export interface UserProfile {
+    contact?: string;
     premiumUntil?: Time;
+    lastLoginAt: Time;
     isPremium: boolean;
-    phone?: string;
+    email?: string;
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: Time;
 }
 export enum UserRole {
     admin = "admin",
@@ -34,25 +38,25 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
-    activatePremium(user: Principal): Promise<void>;
+    activatePremium(user: Principal, adminPasswordInput: string): Promise<void>;
     addDefaultProfile(): Promise<void>;
     addEntry(title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createPremiumCode(code: string): Promise<void>;
+    createPremiumCode(code: string, adminPasswordInput: string): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
-    getAllUsers(): Promise<Array<[Principal, UserProfile]>>;
+    getAllUsers(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getEmailByPrincipal(user: Principal, adminPasswordInput: string): Promise<string | null>;
     getEntries(): Promise<Array<PasswordEntry>>;
     getMyProfile(): Promise<UserProfile | null>;
-    getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>>;
-    getPhoneByPrincipal(user: Principal): Promise<string | null>;
-    getPremiumCodes(): Promise<Array<PremiumCode>>;
+    getPendingPremiumRequests(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
+    getPremiumCodes(adminPasswordInput: string): Promise<Array<PremiumCode>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
-    loginPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
+    loginEmailUser(email: string, passwordHash: string): Promise<boolean>;
     redeemPremiumCode(code: string): Promise<void>;
-    registerPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
+    registerEmailUser(email: string, passwordHash: string, contact: string): Promise<boolean>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;

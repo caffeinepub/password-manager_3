@@ -7,11 +7,12 @@ import {
   Crown,
   Lock,
   LogOut,
-  Phone,
+  Mail,
   Plus,
   RefreshCw,
   Search,
   Shield,
+  Users,
   Wand2,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -89,13 +90,13 @@ function formatPremiumDate(time?: bigint): string {
 }
 
 interface DashboardProps {
-  phone?: string;
+  email?: string;
   passwordHash?: string;
   onLogout?: () => void;
 }
 
 export function Dashboard({
-  phone,
+  email,
   passwordHash: _passwordHash,
   onLogout,
 }: DashboardProps) {
@@ -116,7 +117,7 @@ export function Dashboard({
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("phoneSession");
+    localStorage.removeItem("emailSession");
     if (onLogout) onLogout();
   };
 
@@ -125,8 +126,10 @@ export function Dashboard({
   const limit = isPremium ? PREMIUM_LIMIT : FREE_LIMIT;
   const entryCount = entries.data?.length ?? 0;
   const limitReached = entryCount >= limit;
+  const loginCount = profile.data ? Number(profile.data.loginCount) : 0;
+  const isMultiSession = loginCount > 1;
 
-  const displayIdentifier = phone ? phone : "";
+  const displayIdentifier = email ? email : "";
 
   const filteredEntries = (entries.data ?? []).filter(
     (e) =>
@@ -160,7 +163,7 @@ export function Dashboard({
               )}
               {displayIdentifier && (
                 <span className="text-xs text-muted-foreground hidden md:flex items-center gap-1">
-                  <Phone className="w-3 h-3" />
+                  <Mail className="w-3 h-3" />
                   {displayIdentifier}
                 </span>
               )}
@@ -191,6 +194,24 @@ export function Dashboard({
         </header>
 
         <main className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+          {/* Multi-session notification */}
+          {isMultiSession && !profile.isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-xl p-3 flex items-center gap-3 bg-accent/5 border border-accent/20"
+            >
+              <Users className="w-4 h-4 text-accent shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                Аккаунт используется с нескольких устройств (сессий:{" "}
+                <span className="font-semibold text-foreground">
+                  {loginCount}
+                </span>
+                )
+              </p>
+            </motion.div>
+          )}
+
           {/* Premium Status Banner */}
           {profile.isLoading ? (
             <Skeleton className="h-14 w-full rounded-lg bg-secondary" />

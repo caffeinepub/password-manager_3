@@ -37,35 +37,35 @@ export function useGetMyProfile() {
   });
 }
 
-export function useGetAllUsers() {
+export function useGetAllUsers(adminPassword: string) {
   const { actor, isFetching } = useActor();
   return useQuery<Array<[Principal, UserProfile]>>({
-    queryKey: ["allUsers"],
+    queryKey: ["allUsers", adminPassword],
     queryFn: async () => {
       if (!actor) return [];
       try {
-        return await actor.getAllUsers();
+        return await actor.getAllUsers(adminPassword);
       } catch {
         return [];
       }
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor && !isFetching && !!adminPassword,
   });
 }
 
-export function useGetPendingPremiumRequests() {
+export function useGetPendingPremiumRequests(adminPassword: string) {
   const { actor, isFetching } = useActor();
   return useQuery<Array<[Principal, UserProfile]>>({
-    queryKey: ["pendingPremium"],
+    queryKey: ["pendingPremium", adminPassword],
     queryFn: async () => {
       if (!actor) return [];
       try {
-        return await actor.getPendingPremiumRequests();
+        return await actor.getPendingPremiumRequests(adminPassword);
       } catch {
         return [];
       }
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor && !isFetching && !!adminPassword,
   });
 }
 
@@ -149,9 +149,15 @@ export function useActivatePremium() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (user: Principal) => {
+    mutationFn: async ({
+      user,
+      adminPassword,
+    }: {
+      user: Principal;
+      adminPassword: string;
+    }) => {
       if (!actor) throw new Error("Не авторизован");
-      await actor.activatePremium(user);
+      await actor.activatePremium(user, adminPassword);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["allUsers"] });
@@ -160,19 +166,19 @@ export function useActivatePremium() {
   });
 }
 
-export function useGetPremiumCodes() {
+export function useGetPremiumCodes(adminPassword: string) {
   const { actor, isFetching } = useActor();
   return useQuery({
-    queryKey: ["premiumCodes"],
+    queryKey: ["premiumCodes", adminPassword],
     queryFn: async () => {
       if (!actor) return [];
       try {
-        return await actor.getPremiumCodes();
+        return await actor.getPremiumCodes(adminPassword);
       } catch {
         return [];
       }
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor && !isFetching && !!adminPassword,
   });
 }
 
@@ -180,9 +186,15 @@ export function useCreatePremiumCode() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (code: string) => {
+    mutationFn: async ({
+      code,
+      adminPassword,
+    }: {
+      code: string;
+      adminPassword: string;
+    }) => {
       if (!actor) throw new Error("Не авторизован");
-      await actor.createPremiumCode(code);
+      await actor.createPremiumCode(code, adminPassword);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["premiumCodes"] });
@@ -204,34 +216,36 @@ export function useRedeemPremiumCode() {
   });
 }
 
-export function useRegisterPhoneUser() {
+export function useRegisterEmailUser() {
   const { actor } = useActor();
   return useMutation({
     mutationFn: async ({
-      phone,
+      email,
       passwordHash,
+      contact,
     }: {
-      phone: string;
+      email: string;
       passwordHash: string;
+      contact: string;
     }) => {
       if (!actor) throw new Error("Нет соединения с сервером");
-      return actor.registerPhoneUser(phone, passwordHash);
+      return actor.registerEmailUser(email, passwordHash, contact);
     },
   });
 }
 
-export function useLoginPhoneUser() {
+export function useLoginEmailUser() {
   const { actor } = useActor();
   return useMutation({
     mutationFn: async ({
-      phone,
+      email,
       passwordHash,
     }: {
-      phone: string;
+      email: string;
       passwordHash: string;
     }) => {
       if (!actor) throw new Error("Нет соединения с сервером");
-      return actor.loginPhoneUser(phone, passwordHash);
+      return actor.loginEmailUser(email, passwordHash);
     },
   });
 }

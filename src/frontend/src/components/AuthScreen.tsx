@@ -1,6 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Key, Lock, Phone, Shield, Zap } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Key,
+  Lock,
+  Mail,
+  MessageCircle,
+  Shield,
+  Zap,
+} from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { useActor } from "../hooks/useActor";
@@ -34,7 +43,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 interface Props {
   onAdminLogin: () => void;
-  onPhoneLogin: (phone: string) => void;
+  onEmailLogin: (email: string) => void;
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -63,22 +72,23 @@ const FEATURES = [
   },
 ];
 
-export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
+export function AuthScreen({ onAdminLogin, onEmailLogin }: Props) {
   const { actor } = useActor();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const [showAdminLogin, setShowAdminLogin] = useState(false);
 
   // Login state
-  const [loginPhone, setLoginPhone] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginShowPwd, setLoginShowPwd] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Register state
-  const [regPhone, setRegPhone] = useState("");
+  const [regEmail, setRegEmail] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regConfirm, setRegConfirm] = useState("");
+  const [regContact, setRegContact] = useState("");
   const [regShowPwd, setRegShowPwd] = useState(false);
   const [regShowConfirm, setRegShowConfirm] = useState(false);
   const [regError, setRegError] = useState("");
@@ -86,8 +96,8 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!loginPhone.trim() || !loginPassword.trim()) {
-      setLoginError("Введите номер телефона и пароль");
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setLoginError("Введите email и пароль");
       return;
     }
     if (!actor) {
@@ -98,31 +108,27 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
     setLoginError("");
     try {
       const hash = await hashPassword(loginPassword);
-      const success = await actor.loginPhoneUser(loginPhone.trim(), hash);
+      const success = await actor.loginEmailUser(loginEmail.trim(), hash);
       if (success) {
         const session = JSON.stringify({
-          phone: loginPhone.trim(),
+          email: loginEmail.trim(),
           passwordHash: hash,
           principalStr: "",
         });
-        localStorage.setItem("phoneSession", session);
-        onPhoneLogin(loginPhone.trim());
+        localStorage.setItem("emailSession", session);
+        onEmailLogin(loginEmail.trim());
       } else {
-        setLoginError("Неверный номер или пароль");
+        setLoginError("Неверный email или пароль.");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("Phone not found")) {
-        setLoginError(
-          "Номер телефона не найден. Пожалуйста, зарегистрируйтесь.",
-        );
-      } else if (msg.includes("Invalid phone or password")) {
-        setLoginError(
-          "Неверный номер или пароль. Проверьте и попробуйте снова.",
-        );
+      if (msg.includes("Email not found")) {
+        setLoginError("Email не найден. Пожалуйста, зарегистрируйтесь.");
+      } else if (msg.includes("Invalid email or password")) {
+        setLoginError("Неверный email или пароль.");
       } else if (msg.includes("User profile not found")) {
         setLoginError(
-          "Ошибка данных аккаунта. Пожалуйста, зарегистрируйтесь заново с тем же номером телефона.",
+          "Ошибка данных аккаунта. Пожалуйста, зарегистрируйтесь заново.",
         );
       } else {
         setLoginError("Ошибка подключения. Попробуйте ещё раз.");
@@ -134,8 +140,12 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!regPhone.trim()) {
-      setRegError("Введите номер телефона");
+    if (!regEmail.trim()) {
+      setRegError("Введите email адрес");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      setRegError("Введите корректный email адрес");
       return;
     }
     if (regPassword.length < 6) {
@@ -146,6 +156,10 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
       setRegError("Пароли не совпадают");
       return;
     }
+    if (!regContact.trim()) {
+      setRegError("Укажите Telegram или WhatsApp (обязательно)");
+      return;
+    }
     if (!actor) {
       setRegError("Соединение с сервером не установлено. Попробуйте позже.");
       return;
@@ -154,34 +168,37 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
     setRegError("");
     try {
       const hash = await hashPassword(regPassword);
-      const success = await actor.registerPhoneUser(regPhone.trim(), hash);
+      const success = await actor.registerEmailUser(
+        regEmail.trim(),
+        hash,
+        regContact.trim(),
+      );
       if (success) {
         // Auto-login after registration
-        const loginSuccess = await actor.loginPhoneUser(regPhone.trim(), hash);
+        const loginSuccess = await actor.loginEmailUser(regEmail.trim(), hash);
         if (loginSuccess) {
           const session = JSON.stringify({
-            phone: regPhone.trim(),
+            email: regEmail.trim(),
             passwordHash: hash,
             principalStr: "",
           });
-          localStorage.setItem("phoneSession", session);
-          onPhoneLogin(regPhone.trim());
+          localStorage.setItem("emailSession", session);
+          onEmailLogin(regEmail.trim());
         } else {
           setActiveTab("login");
-          setLoginPhone(regPhone.trim());
-          setRegPhone("");
+          setLoginEmail(regEmail.trim());
+          setRegEmail("");
           setRegPassword("");
           setRegConfirm("");
+          setRegContact("");
         }
       } else {
-        setRegError("Этот номер уже зарегистрирован");
+        setRegError("Этот email уже зарегистрирован.");
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes("Phone already registered")) {
-        setRegError("Этот номер уже зарегистрирован");
-      } else if (msg.includes("Phone must start with +")) {
-        setRegError("Номер телефона должен начинаться с +");
+      if (msg.includes("Email already registered")) {
+        setRegError("Этот email уже зарегистрирован.");
       } else {
         setRegError("Ошибка подключения. Попробуйте ещё раз.");
       }
@@ -269,15 +286,15 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
                 className="space-y-3"
               >
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <Input
-                    data-ocid="auth.phone_input"
-                    type="tel"
-                    placeholder="+992 XX XXX XXXX"
-                    value={loginPhone}
-                    onChange={(e) => setLoginPhone(e.target.value)}
+                    data-ocid="auth.email_input"
+                    type="email"
+                    placeholder="your@gmail.com"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
                     className="pl-9 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
-                    autoComplete="tel"
+                    autoComplete="email"
                     disabled={loginLoading}
                   />
                 </div>
@@ -343,15 +360,15 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
                 className="space-y-3"
               >
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                   <Input
-                    data-ocid="auth.reg_phone_input"
-                    type="tel"
-                    placeholder="+992 XX XXX XXXX"
-                    value={regPhone}
-                    onChange={(e) => setRegPhone(e.target.value)}
+                    data-ocid="auth.reg_email_input"
+                    type="email"
+                    placeholder="your@gmail.com"
+                    value={regEmail}
+                    onChange={(e) => setRegEmail(e.target.value)}
                     className="pl-9 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
-                    autoComplete="tel"
+                    autoComplete="email"
                     disabled={regLoading}
                   />
                 </div>
@@ -411,6 +428,24 @@ export function AuthScreen({ onAdminLogin, onPhoneLogin }: Props) {
                     )}
                   </button>
                 </div>
+
+                {/* Contact field — mandatory */}
+                <div className="relative">
+                  <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    data-ocid="auth.reg_contact_input"
+                    type="text"
+                    placeholder="Telegram (@username) или WhatsApp (+992...)"
+                    value={regContact}
+                    onChange={(e) => setRegContact(e.target.value)}
+                    className="pl-9 bg-secondary/50 border-border focus:border-primary text-foreground placeholder:text-muted-foreground"
+                    autoComplete="off"
+                    disabled={regLoading}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground/60 px-1 -mt-1">
+                  Укажите контакт — мы свяжемся с вами для активации Premium
+                </p>
 
                 {regError && (
                   <p

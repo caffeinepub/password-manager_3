@@ -15,10 +15,14 @@ export const UserRole = IDL.Variant({
 });
 export const Time = IDL.Int;
 export const UserProfile = IDL.Record({
+  'contact' : IDL.Opt(IDL.Text),
   'premiumUntil' : IDL.Opt(Time),
+  'lastLoginAt' : Time,
   'isPremium' : IDL.Bool,
-  'phone' : IDL.Opt(IDL.Text),
+  'email' : IDL.Opt(IDL.Text),
+  'loginCount' : IDL.Nat,
   'pendingPremium' : IDL.Bool,
+  'registeredAt' : Time,
 });
 export const PasswordEntry = IDL.Record({
   'id' : IDL.Nat,
@@ -37,7 +41,7 @@ export const PremiumCode = IDL.Record({
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-  'activatePremium' : IDL.Func([IDL.Principal], [], []),
+  'activatePremium' : IDL.Func([IDL.Principal, IDL.Text], [], []),
   'addDefaultProfile' : IDL.Func([], [], []),
   'addEntry' : IDL.Func(
       [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
@@ -45,37 +49,41 @@ export const idlService = IDL.Service({
       [],
     ),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-  'createPremiumCode' : IDL.Func([IDL.Text], [], []),
+  'createPremiumCode' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'deleteEntry' : IDL.Func([IDL.Nat], [], []),
   'getAllUsers' : IDL.Func(
-      [],
+      [IDL.Text],
       [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
       ['query'],
     ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-  'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
-  'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-  'getPendingPremiumRequests' : IDL.Func(
-      [],
-      [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
-      ['query'],
-    ),
-  'getPhoneByPrincipal' : IDL.Func(
-      [IDL.Principal],
+  'getEmailByPrincipal' : IDL.Func(
+      [IDL.Principal, IDL.Text],
       [IDL.Opt(IDL.Text)],
       ['query'],
     ),
-  'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
+  'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
+  'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getPendingPremiumRequests' : IDL.Func(
+      [IDL.Text],
+      [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+      ['query'],
+    ),
+  'getPremiumCodes' : IDL.Func([IDL.Text], [IDL.Vec(PremiumCode)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
       ['query'],
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-  'loginPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+  'loginEmailUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
   'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
-  'registerPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+  'registerEmailUser' : IDL.Func(
+      [IDL.Text, IDL.Text, IDL.Text],
+      [IDL.Bool],
+      [],
+    ),
   'requestPremium' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'updateEntry' : IDL.Func(
@@ -96,10 +104,14 @@ export const idlFactory = ({ IDL }) => {
   });
   const Time = IDL.Int;
   const UserProfile = IDL.Record({
+    'contact' : IDL.Opt(IDL.Text),
     'premiumUntil' : IDL.Opt(Time),
+    'lastLoginAt' : Time,
     'isPremium' : IDL.Bool,
-    'phone' : IDL.Opt(IDL.Text),
+    'email' : IDL.Opt(IDL.Text),
+    'loginCount' : IDL.Nat,
     'pendingPremium' : IDL.Bool,
+    'registeredAt' : Time,
   });
   const PasswordEntry = IDL.Record({
     'id' : IDL.Nat,
@@ -118,7 +130,7 @@ export const idlFactory = ({ IDL }) => {
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
-    'activatePremium' : IDL.Func([IDL.Principal], [], []),
+    'activatePremium' : IDL.Func([IDL.Principal, IDL.Text], [], []),
     'addDefaultProfile' : IDL.Func([], [], []),
     'addEntry' : IDL.Func(
         [IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
@@ -126,37 +138,41 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
-    'createPremiumCode' : IDL.Func([IDL.Text], [], []),
+    'createPremiumCode' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'deleteEntry' : IDL.Func([IDL.Nat], [], []),
     'getAllUsers' : IDL.Func(
-        [],
+        [IDL.Text],
         [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
         ['query'],
       ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
-    'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
-    'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
-    'getPendingPremiumRequests' : IDL.Func(
-        [],
-        [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
-        ['query'],
-      ),
-    'getPhoneByPrincipal' : IDL.Func(
-        [IDL.Principal],
+    'getEmailByPrincipal' : IDL.Func(
+        [IDL.Principal, IDL.Text],
         [IDL.Opt(IDL.Text)],
         ['query'],
       ),
-    'getPremiumCodes' : IDL.Func([], [IDL.Vec(PremiumCode)], ['query']),
+    'getEntries' : IDL.Func([], [IDL.Vec(PasswordEntry)], ['query']),
+    'getMyProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getPendingPremiumRequests' : IDL.Func(
+        [IDL.Text],
+        [IDL.Vec(IDL.Tuple(IDL.Principal, UserProfile))],
+        ['query'],
+      ),
+    'getPremiumCodes' : IDL.Func([IDL.Text], [IDL.Vec(PremiumCode)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
         ['query'],
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
-    'loginPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+    'loginEmailUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
     'redeemPremiumCode' : IDL.Func([IDL.Text], [], []),
-    'registerPhoneUser' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+    'registerEmailUser' : IDL.Func(
+        [IDL.Text, IDL.Text, IDL.Text],
+        [IDL.Bool],
+        [],
+      ),
     'requestPremium' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'updateEntry' : IDL.Func(

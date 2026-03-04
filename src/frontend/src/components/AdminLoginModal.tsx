@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, Loader2, Shield, X } from "lucide-react";
 import { useState } from "react";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 const ADMIN_PASSWORD = "fftr56#^";
 
@@ -24,7 +23,6 @@ export function AdminLoginModal({ open, onClose, onSuccess }: Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login } = useInternetIdentity();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,13 +33,8 @@ export function AdminLoginModal({ open, onClose, onSuccess }: Props) {
 
     if (password === ADMIN_PASSWORD) {
       localStorage.setItem("adminSession", "true");
+      localStorage.setItem("adminPassword", ADMIN_PASSWORD);
       setPassword("");
-      // Automatically trigger Internet Identity login so admin backend calls work
-      try {
-        await login();
-      } catch {
-        // If II login fails or is cancelled, still open admin panel (II banner will show)
-      }
       setLoading(false);
       onSuccess();
     } else {
@@ -108,11 +101,6 @@ export function AdminLoginModal({ open, onClose, onSuccess }: Props) {
               </p>
             )}
           </div>
-
-          <p className="text-xs text-muted-foreground bg-secondary/50 rounded-lg p-2.5">
-            После ввода пароля откроется окно Internet Identity для
-            подтверждения личности.
-          </p>
 
           <div className="flex gap-2 pt-1">
             <Button

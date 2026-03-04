@@ -105,10 +105,14 @@ export interface PremiumCode {
     isUsed: boolean;
 }
 export interface UserProfile {
+    contact?: string;
     premiumUntil?: Time;
+    lastLoginAt: Time;
     isPremium: boolean;
-    phone?: string;
+    email?: string;
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: Time;
 }
 export enum UserRole {
     admin = "admin",
@@ -117,25 +121,25 @@ export enum UserRole {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
-    activatePremium(user: Principal): Promise<void>;
+    activatePremium(user: Principal, adminPasswordInput: string): Promise<void>;
     addDefaultProfile(): Promise<void>;
     addEntry(title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
-    createPremiumCode(code: string): Promise<void>;
+    createPremiumCode(code: string, adminPasswordInput: string): Promise<void>;
     deleteEntry(id: bigint): Promise<void>;
-    getAllUsers(): Promise<Array<[Principal, UserProfile]>>;
+    getAllUsers(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getEmailByPrincipal(user: Principal, adminPasswordInput: string): Promise<string | null>;
     getEntries(): Promise<Array<PasswordEntry>>;
     getMyProfile(): Promise<UserProfile | null>;
-    getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>>;
-    getPhoneByPrincipal(user: Principal): Promise<string | null>;
-    getPremiumCodes(): Promise<Array<PremiumCode>>;
+    getPendingPremiumRequests(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
+    getPremiumCodes(adminPasswordInput: string): Promise<Array<PremiumCode>>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
-    loginPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
+    loginEmailUser(email: string, passwordHash: string): Promise<boolean>;
     redeemPremiumCode(code: string): Promise<void>;
-    registerPhoneUser(phone: string, passwordHash: string): Promise<boolean>;
+    registerEmailUser(email: string, passwordHash: string, contact: string): Promise<boolean>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;
@@ -158,17 +162,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async activatePremium(arg0: Principal): Promise<void> {
+    async activatePremium(arg0: Principal, arg1: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.activatePremium(arg0);
+                const result = await this.actor.activatePremium(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.activatePremium(arg0);
+            const result = await this.actor.activatePremium(arg0, arg1);
             return result;
         }
     }
@@ -214,17 +218,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async createPremiumCode(arg0: string): Promise<void> {
+    async createPremiumCode(arg0: string, arg1: string): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.createPremiumCode(arg0);
+                const result = await this.actor.createPremiumCode(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.createPremiumCode(arg0);
+            const result = await this.actor.createPremiumCode(arg0, arg1);
             return result;
         }
     }
@@ -242,17 +246,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async getAllUsers(): Promise<Array<[Principal, UserProfile]>> {
+    async getAllUsers(arg0: string): Promise<Array<[Principal, UserProfile]>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getAllUsers();
+                const result = await this.actor.getAllUsers(arg0);
                 return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getAllUsers();
+            const result = await this.actor.getAllUsers(arg0);
             return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
         }
     }
@@ -284,6 +288,20 @@ export class Backend implements backendInterface {
             return from_candid_UserRole_n10(this._uploadFile, this._downloadFile, result);
         }
     }
+    async getEmailByPrincipal(arg0: Principal, arg1: string): Promise<string | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getEmailByPrincipal(arg0, arg1);
+                return from_candid_opt_n7(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getEmailByPrincipal(arg0, arg1);
+            return from_candid_opt_n7(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getEntries(): Promise<Array<PasswordEntry>> {
         if (this.processError) {
             try {
@@ -312,45 +330,31 @@ export class Backend implements backendInterface {
             return from_candid_opt_n9(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getPendingPremiumRequests(): Promise<Array<[Principal, UserProfile]>> {
+    async getPendingPremiumRequests(arg0: string): Promise<Array<[Principal, UserProfile]>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getPendingPremiumRequests();
+                const result = await this.actor.getPendingPremiumRequests(arg0);
                 return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getPendingPremiumRequests();
+            const result = await this.actor.getPendingPremiumRequests(arg0);
             return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
         }
     }
-    async getPhoneByPrincipal(arg0: Principal): Promise<string | null> {
+    async getPremiumCodes(arg0: string): Promise<Array<PremiumCode>> {
         if (this.processError) {
             try {
-                const result = await this.actor.getPhoneByPrincipal(arg0);
-                return from_candid_opt_n8(this._uploadFile, this._downloadFile, result);
-            } catch (e) {
-                this.processError(e);
-                throw new Error("unreachable");
-            }
-        } else {
-            const result = await this.actor.getPhoneByPrincipal(arg0);
-            return from_candid_opt_n8(this._uploadFile, this._downloadFile, result);
-        }
-    }
-    async getPremiumCodes(): Promise<Array<PremiumCode>> {
-        if (this.processError) {
-            try {
-                const result = await this.actor.getPremiumCodes();
+                const result = await this.actor.getPremiumCodes(arg0);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.getPremiumCodes();
+            const result = await this.actor.getPremiumCodes(arg0);
             return result;
         }
     }
@@ -382,17 +386,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async loginPhoneUser(arg0: string, arg1: string): Promise<boolean> {
+    async loginEmailUser(arg0: string, arg1: string): Promise<boolean> {
         if (this.processError) {
             try {
-                const result = await this.actor.loginPhoneUser(arg0, arg1);
+                const result = await this.actor.loginEmailUser(arg0, arg1);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.loginPhoneUser(arg0, arg1);
+            const result = await this.actor.loginEmailUser(arg0, arg1);
             return result;
         }
     }
@@ -410,17 +414,17 @@ export class Backend implements backendInterface {
             return result;
         }
     }
-    async registerPhoneUser(arg0: string, arg1: string): Promise<boolean> {
+    async registerEmailUser(arg0: string, arg1: string, arg2: string): Promise<boolean> {
         if (this.processError) {
             try {
-                const result = await this.actor.registerPhoneUser(arg0, arg1);
+                const result = await this.actor.registerEmailUser(arg0, arg1, arg2);
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.registerPhoneUser(arg0, arg1);
+            const result = await this.actor.registerEmailUser(arg0, arg1, arg2);
             return result;
         }
     }
@@ -487,31 +491,43 @@ function from_candid_UserProfile_n5(_uploadFile: (file: ExternalBlob) => Promise
 function from_candid_UserRole_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
     return from_candid_variant_n11(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Time]): Time | null {
+function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
+function from_candid_opt_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_Time]): Time | null {
     return value.length === 0 ? null : value[0];
 }
 function from_candid_opt_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
     return value.length === 0 ? null : from_candid_UserProfile_n5(_uploadFile, _downloadFile, value[0]);
 }
 function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    contact: [] | [string];
     premiumUntil: [] | [_Time];
+    lastLoginAt: _Time;
     isPremium: boolean;
-    phone: [] | [string];
+    email: [] | [string];
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: _Time;
 }): {
+    contact?: string;
     premiumUntil?: Time;
+    lastLoginAt: Time;
     isPremium: boolean;
-    phone?: string;
+    email?: string;
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: Time;
 } {
     return {
-        premiumUntil: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.premiumUntil)),
+        contact: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.contact)),
+        premiumUntil: record_opt_to_undefined(from_candid_opt_n8(_uploadFile, _downloadFile, value.premiumUntil)),
+        lastLoginAt: value.lastLoginAt,
         isPremium: value.isPremium,
-        phone: record_opt_to_undefined(from_candid_opt_n8(_uploadFile, _downloadFile, value.phone)),
-        pendingPremium: value.pendingPremium
+        email: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.email)),
+        loginCount: value.loginCount,
+        pendingPremium: value.pendingPremium,
+        registeredAt: value.registeredAt
     };
 }
 function from_candid_tuple_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [Principal, _UserProfile]): [Principal, UserProfile] {
@@ -539,21 +555,33 @@ function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint
     return to_candid_variant_n2(_uploadFile, _downloadFile, value);
 }
 function to_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    contact?: string;
     premiumUntil?: Time;
+    lastLoginAt: Time;
     isPremium: boolean;
-    phone?: string;
+    email?: string;
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: Time;
 }): {
+    contact: [] | [string];
     premiumUntil: [] | [_Time];
+    lastLoginAt: _Time;
     isPremium: boolean;
-    phone: [] | [string];
+    email: [] | [string];
+    loginCount: bigint;
     pendingPremium: boolean;
+    registeredAt: _Time;
 } {
     return {
+        contact: value.contact ? candid_some(value.contact) : candid_none(),
         premiumUntil: value.premiumUntil ? candid_some(value.premiumUntil) : candid_none(),
+        lastLoginAt: value.lastLoginAt,
         isPremium: value.isPremium,
-        phone: value.phone ? candid_some(value.phone) : candid_none(),
-        pendingPremium: value.pendingPremium
+        email: value.email ? candid_some(value.email) : candid_none(),
+        loginCount: value.loginCount,
+        pendingPremium: value.pendingPremium,
+        registeredAt: value.registeredAt
     };
 }
 function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {

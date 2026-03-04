@@ -1,44 +1,81 @@
 import { Toaster } from "@/components/ui/sonner";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AdminPanel } from "./components/AdminPanel";
 import { AuthScreen } from "./components/AuthScreen";
 import { Dashboard } from "./components/Dashboard";
+import { useActor } from "./hooks/useActor";
 
-interface PhoneSession {
-  phone: string;
+interface EmailSession {
+  email: string;
   passwordHash?: string;
   principalStr: string;
 }
 
 function AppContent() {
+  const { actor, isFetching: actorFetching } = useActor();
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isPhoneLoggedIn, setIsPhoneLoggedIn] = useState(false);
-  const [phone, setPhone] = useState<string>("");
+  const [isEmailLoggedIn, setIsEmailLoggedIn] = useState(false);
+  const [email, setEmail] = useState<string>("");
   const [passwordHash, setPasswordHash] = useState<string>("");
-  const [isInitializing, setIsInitializing] = useState(true);
+  // null = not yet checked localStorage, true = restoring session, false = done
+  const [isRestoringSession, setIsRestoringSession] = useState<boolean | null>(
+    null,
+  );
+  const sessionRestoreAttempted = useRef(false);
 
+  // On mount, read localStorage to see if there's a saved session
   useEffect(() => {
     const adminSession = localStorage.getItem("adminSession");
     if (adminSession === "true") {
       setIsAdmin(true);
     }
 
-    const phoneSessionRaw = localStorage.getItem("phoneSession");
-    if (phoneSessionRaw) {
+    const emailSessionRaw = localStorage.getItem("emailSession");
+    if (emailSessionRaw) {
       try {
-        const session: PhoneSession = JSON.parse(phoneSessionRaw);
-        if (session.phone) {
-          setPhone(session.phone);
-          setPasswordHash(session.passwordHash ?? "");
-          setIsPhoneLoggedIn(true);
+        const session: EmailSession = JSON.parse(emailSessionRaw);
+        if (session.email && session.passwordHash) {
+          setEmail(session.email);
+          setPasswordHash(session.passwordHash);
+          // Mark that we have a pending session restore
+          setIsRestoringSession(true);
+          return;
         }
       } catch {
-        localStorage.removeItem("phoneSession");
+        localStorage.removeItem("emailSession");
       }
     }
-
-    setIsInitializing(false);
+    // No valid session in storage
+    setIsRestoringSession(false);
   }, []);
+
+  // When actor is ready and we have a session to restore, call loginEmailUser
+  useEffect(() => {
+    if (isRestoringSession !== true) return;
+    if (actorFetching || !actor) return;
+    if (sessionRestoreAttempted.current) return;
+    sessionRestoreAttempted.current = true;
+
+    (async () => {
+      try {
+        const success = await actor.loginEmailUser(email, passwordHash);
+        if (success) {
+          setIsEmailLoggedIn(true);
+        } else {
+          // Credentials no longer valid — clear and show auth screen
+          localStorage.removeItem("emailSession");
+          setEmail("");
+          setPasswordHash("");
+        }
+      } catch {
+        localStorage.removeItem("emailSession");
+        setEmail("");
+        setPasswordHash("");
+      } finally {
+        setIsRestoringSession(false);
+      }
+    })();
+  }, [isRestoringSession, actor, actorFetching, email, passwordHash]);
 
   const handleAdminLogin = () => {
     setIsAdmin(true);
@@ -49,28 +86,32 @@ function AppContent() {
     setIsAdmin(false);
   };
 
-  const handlePhoneLogin = (phoneNumber: string) => {
-    const raw = localStorage.getItem("phoneSession");
+  const handleEmailLogin = (emailAddress: string) => {
+    const raw = localStorage.getItem("emailSession");
     let hash = "";
     if (raw) {
       try {
-        const parsed: PhoneSession = JSON.parse(raw);
+        const parsed: EmailSession = JSON.parse(raw);
         hash = parsed.passwordHash ?? "";
       } catch {
         // ignore
       }
     }
-    setPhone(phoneNumber);
+    setEmail(emailAddress);
     setPasswordHash(hash);
-    setIsPhoneLoggedIn(true);
+    setIsEmailLoggedIn(true);
   };
 
-  const handlePhoneLogout = () => {
-    localStorage.removeItem("phoneSession");
-    setPhone("");
+  const handleEmailLogout = () => {
+    localStorage.removeItem("emailSession");
+    setEmail("");
     setPasswordHash("");
-    setIsPhoneLoggedIn(false);
+    setIsEmailLoggedIn(false);
   };
+
+  // Still determining initial state
+  const isInitializing =
+    isRestoringSession === null || isRestoringSession === true;
 
   if (isInitializing) {
     return (
@@ -106,12 +147,12 @@ function AppContent() {
     return <AdminPanel onLogout={handleAdminLogout} />;
   }
 
-  if (isPhoneLoggedIn) {
+  if (isEmailLoggedIn) {
     return (
       <Dashboard
-        phone={phone}
+        email={email}
         passwordHash={passwordHash}
-        onLogout={handlePhoneLogout}
+        onLogout={handleEmailLogout}
       />
     );
   }
@@ -119,7 +160,7 @@ function AppContent() {
   return (
     <AuthScreen
       onAdminLogin={handleAdminLogin}
-      onPhoneLogin={handlePhoneLogin}
+      onEmailLogin={handleEmailLogin}
     />
   );
 }
