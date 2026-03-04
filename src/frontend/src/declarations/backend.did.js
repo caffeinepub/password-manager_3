@@ -21,6 +21,7 @@ export const UserProfile = IDL.Record({
   'isPremium' : IDL.Bool,
   'email' : IDL.Opt(IDL.Text),
   'loginCount' : IDL.Nat,
+  'bonusBalance' : IDL.Nat,
   'pendingPremium' : IDL.Bool,
   'registeredAt' : Time,
 });
@@ -71,6 +72,7 @@ export const idlService = IDL.Service({
       ['query'],
     ),
   'getPremiumCodes' : IDL.Func([IDL.Text], [IDL.Vec(PremiumCode)], ['query']),
+  'getPremiumDaysRemaining' : IDL.Func([], [IDL.Opt(IDL.Nat)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -86,6 +88,7 @@ export const idlService = IDL.Service({
     ),
   'requestPremium' : IDL.Func([], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'spendBonus' : IDL.Func([], [], []),
   'updateEntry' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
       [],
@@ -110,6 +113,7 @@ export const idlFactory = ({ IDL }) => {
     'isPremium' : IDL.Bool,
     'email' : IDL.Opt(IDL.Text),
     'loginCount' : IDL.Nat,
+    'bonusBalance' : IDL.Nat,
     'pendingPremium' : IDL.Bool,
     'registeredAt' : Time,
   });
@@ -160,6 +164,7 @@ export const idlFactory = ({ IDL }) => {
         ['query'],
       ),
     'getPremiumCodes' : IDL.Func([IDL.Text], [IDL.Vec(PremiumCode)], ['query']),
+    'getPremiumDaysRemaining' : IDL.Func([], [IDL.Opt(IDL.Nat)], ['query']),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -175,6 +180,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'requestPremium' : IDL.Func([], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'spendBonus' : IDL.Func([], [], []),
     'updateEntry' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Text, IDL.Text, IDL.Text, IDL.Text],
         [],

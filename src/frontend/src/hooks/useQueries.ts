@@ -249,3 +249,17 @@ export function useLoginEmailUser() {
     },
   });
 }
+
+export function useSpendBonus() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      if (!actor) throw new Error("Не авторизован");
+      await actor.spendBonus();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["myProfile"] });
+    },
+  });
+}

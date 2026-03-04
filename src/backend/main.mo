@@ -11,7 +11,9 @@ import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   module PremiumCode {
     public func compare(code1 : PremiumCode, code2 : PremiumCode) : Order.Order {
@@ -37,6 +39,7 @@ actor {
     registeredAt : Time.Time;
     lastLoginAt : Time.Time;
     loginCount : Nat;
+    bonusBalance : Nat;
   };
 
   public type EmailUser = {
@@ -116,6 +119,7 @@ actor {
       registeredAt = now;
       lastLoginAt = now;
       loginCount = 1;
+      bonusBalance = 0;
     };
 
     let userProfileState = {
@@ -182,6 +186,7 @@ actor {
       registeredAt = now;
       lastLoginAt = now;
       loginCount = 0;
+      bonusBalance = 0;
     };
     let userProfileState = { entries = List.empty<PasswordEntry>(); profile = defaultProfile };
     userProfiles.add(caller, userProfileState);
@@ -299,6 +304,7 @@ actor {
   public shared ({ caller }) func deleteEntry(id : Nat) : async () {
     switch (userProfiles.get(caller)) {
       case (?profileState) {
+        // Remove all entries with matching id (should only ever be one).
         let filteredEntries = profileState.entries.filter(
           func(entry) { entry.id != id }
         );
@@ -334,6 +340,7 @@ actor {
           registeredAt = now;
           lastLoginAt = now;
           loginCount = 0;
+          bonusBalance = 0;
         };
         userProfiles.add(caller, { entries = List.empty<PasswordEntry>(); profile = newProfile });
       };
@@ -371,6 +378,7 @@ actor {
           isPremium = true;
           premiumUntil = ?(Time.now() + thirtyDaysInNanos);
           pendingPremium = false;
+          bonusBalance = profileState.profile.bonusBalance + 100;
         };
         let updatedProfileState = { profileState with profile = newProfile };
         userProfiles.add(user, updatedProfileState);
@@ -447,6 +455,53 @@ actor {
     switch (userProfiles.get(caller)) {
       case (?userProfileState) { userProfileState.entries.size() + next };
       case (null) { next };
+    };
+  };
+
+  // NEW FEATURES
+
+  // Open to all - data isolation via caller principal
+  public shared ({ caller }) func spendBonus() : async () {
+    switch (userProfiles.get(caller)) {
+      case (null) { Runtime.trap("User profile not found") };
+      case (?profileState) {
+        let bonusBalance = profileState.profile.bonusBalance;
+        if (bonusBalance < 100) {
+          Runtime.trap("Недостаточно бонусов Д. Нужно 100 Д для покупки Premium. ");
+        };
+
+        let thirtyDaysInNanos = 30 * 24 * 60 * 60 * 1_000_000_000 : Time.Time;
+
+        let updatedProfile = {
+          profileState.profile with
+          bonusBalance = bonusBalance - 100;
+          isPremium = true;
+          premiumUntil = ?(Time.now() + thirtyDaysInNanos);
+          pendingPremium = false;
+        };
+
+        let updatedProfileState = { profileState with profile = updatedProfile };
+        userProfiles.add(caller, updatedProfileState);
+      };
+    };
+  };
+
+  // Open to all - data isolation via caller principal
+  public query ({ caller }) func getPremiumDaysRemaining() : async ?Nat {
+    switch (userProfiles.get(caller)) {
+      case (null) { null };
+      case (?profileState) {
+        if (profileState.profile.isPremium and profileState.profile.premiumUntil != null) {
+          let now = Time.now();
+          let remainingNanos = switch (profileState.profile.premiumUntil) {
+            case (null) { 0 };
+            case (?t) { t - now; };
+          };
+          if (remainingNanos > 0) {
+            ?(remainingNanos / (24 * 60 * 60 * 1_000_000_000)).toNat();
+          } else { null };
+        } else { null };
+      };
     };
   };
 };

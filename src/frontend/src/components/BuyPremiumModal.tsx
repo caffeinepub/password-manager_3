@@ -13,11 +13,16 @@ import {
   Copy,
   Crown,
   Loader2,
+  Sparkles,
   Tag,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { useRedeemPremiumCode, useRequestPremium } from "../hooks/useQueries";
+import {
+  useRedeemPremiumCode,
+  useRequestPremium,
+  useSpendBonus,
+} from "../hooks/useQueries";
 
 function TelegramIcon({ className }: { className?: string }) {
   return (
@@ -51,15 +56,18 @@ const CARD_FORMATTED = "5413 5252 5060 7278";
 interface Props {
   open: boolean;
   onClose: () => void;
+  bonusBalance?: bigint;
 }
 
-export function BuyPremiumModal({ open, onClose }: Props) {
+export function BuyPremiumModal({ open, onClose, bonusBalance = 0n }: Props) {
   const [cardCopied, setCardCopied] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [bonusSuccess, setBonusSuccess] = useState(false);
   const [promoExpanded, setPromoExpanded] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const requestPremium = useRequestPremium();
   const redeemCode = useRedeemPremiumCode();
+  const spendBonus = useSpendBonus();
 
   const handleRedeemCode = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -96,9 +104,21 @@ export function BuyPremiumModal({ open, onClose }: Props) {
 
   const handleClose = () => {
     setSuccess(false);
+    setBonusSuccess(false);
     setPromoExpanded(false);
     setPromoCode("");
     onClose();
+  };
+
+  const handleSpendBonus = async () => {
+    try {
+      await spendBonus.mutateAsync();
+      setBonusSuccess(true);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Ошибка при использовании бонусов";
+      toast.error(msg);
+    }
   };
 
   return (
@@ -111,7 +131,40 @@ export function BuyPremiumModal({ open, onClose }: Props) {
           </DialogTitle>
         </DialogHeader>
 
-        {success ? (
+        {bonusSuccess ? (
+          <div
+            className="text-center py-6 space-y-4"
+            data-ocid="premium.bonus.success_state"
+          >
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
+              style={{
+                background: "oklch(0.83 0.16 80 / 0.15)",
+                border: "1px solid oklch(0.83 0.16 80 / 0.4)",
+              }}
+            >
+              <Sparkles
+                className="w-8 h-8"
+                style={{ color: "oklch(0.9 0.15 80)" }}
+              />
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-semibold text-foreground">
+                Premium активирован за 100 Д!
+              </h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Ваши бонусы Д успешно использованы. Premium активирован на 30
+                дней.
+              </p>
+            </div>
+            <Button
+              onClick={handleClose}
+              className="bg-primary text-primary-foreground hover:opacity-90"
+            >
+              Закрыть
+            </Button>
+          </div>
+        ) : success ? (
           <div className="text-center py-6 space-y-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center mx-auto">
               <Check className="w-8 h-8 text-primary" />
@@ -134,6 +187,50 @@ export function BuyPremiumModal({ open, onClose }: Props) {
           </div>
         ) : (
           <div className="space-y-5">
+            {/* Bonus section — shown when user has >= 100 Д */}
+            {bonusBalance >= 100n && (
+              <div
+                className="rounded-lg p-4 space-y-3"
+                data-ocid="premium.bonus.card"
+                style={{
+                  background: "oklch(0.83 0.16 80 / 0.07)",
+                  border: "1.5px solid oklch(0.83 0.16 80 / 0.5)",
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles
+                    className="w-4 h-4 shrink-0"
+                    style={{ color: "oklch(0.9 0.15 80)" }}
+                  />
+                  <p className="text-sm font-semibold text-foreground">
+                    У вас 100 Д бонусов!
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Вы можете получить Premium бесплатно, использовав свои бонусы
+                  Д.
+                </p>
+                <Button
+                  onClick={handleSpendBonus}
+                  disabled={spendBonus.isPending}
+                  data-ocid="premium.bonus.primary_button"
+                  className="w-full font-semibold text-sm"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, oklch(0.83 0.16 80), oklch(0.75 0.18 70))",
+                    color: "oklch(0.12 0.02 250)",
+                  }}
+                >
+                  {spendBonus.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Sparkles className="w-4 h-4 mr-2" />
+                  )}
+                  Использовать 100 Д для Premium
+                </Button>
+              </div>
+            )}
+
             {/* Premium benefits */}
             <div className="rounded-lg bg-gradient-to-br from-[oklch(0.85_0.18_88_/_0.08)] to-[oklch(0.83_0.16_80_/_0.05)] border border-[oklch(0.83_0.16_80_/_0.3)] p-4 space-y-2">
               <div className="flex items-center justify-between">
@@ -158,6 +255,11 @@ export function BuyPremiumModal({ open, onClose }: Props) {
                   Срок действия: 30 дней
                 </li>
               </ul>
+              {bonusBalance > 0n && (
+                <p className="text-xs text-muted-foreground pt-1 border-t border-border/50">
+                  Ваш баланс Д: {Number(bonusBalance)}
+                </p>
+              )}
             </div>
 
             {/* Payment instructions */}

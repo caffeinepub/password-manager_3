@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { SiTelegram, SiWhatsapp } from "react-icons/si";
+import type { UserProfile } from "../backend.d";
 
 type MessageRole = "bot" | "user";
 
@@ -18,7 +19,9 @@ interface Message {
 const QUICK_REPLIES = [
   "Как купить Premium?",
   "Сколько стоит Premium?",
+  "Сколько дней осталось?",
   "Я заплатил, но Premium не дали",
+  "Что такое бонусы Д?",
   "Как добавить пароль?",
   "Лимит записей",
   "Как использовать промокод?",
@@ -348,15 +351,73 @@ const KB: KBEntry[] = [
       text: "Я — умный помощник приложения Password Manager, созданного компанией DonatX-FF. Я знаю всё об этом приложении и готов ответить на любые вопросы.",
     }),
   },
+  {
+    keywords: [
+      "бонус",
+      "бонусы",
+      "д бонус",
+      "что такое д",
+      "валюта д",
+      "100 д",
+      "бонусный",
+    ],
+    answer: () => ({
+      text: "Бонусы Д — это внутренняя валюта приложения.\n\n• 100 Д = 1 месяц Premium\n• Вы получаете 100 Д автоматически, когда администратор активирует вам Premium\n• Накопив 100 Д, можно получить следующий Premium бесплатно через кнопку «Использовать 100 Д для Premium» в окне покупки\n\nБаланс Д отображается в разделе Premium на главном экране.",
+    }),
+  },
 ];
 
 // ─── Smart matching ────────────────────────────────────────────────────────────
 
-function getBotResponse(question: string): {
+const DAYS_REMAINING_KEYWORDS = [
+  "сколько дней",
+  "осталось дней",
+  "до окончания",
+  "до конца",
+  "когда закончится",
+  "осталось до",
+  "истекает когда",
+  "сколько осталось",
+];
+
+function getDaysRemainingAnswer(userProfile?: UserProfile): { text: string } {
+  if (!userProfile) {
+    return {
+      text: "У вас нет активного Premium. Купите Premium ($3/мес) через кнопку «Купить Premium» на главном экране.",
+    };
+  }
+  if (userProfile.isPremium && userProfile.premiumUntil) {
+    const daysLeft = Math.ceil(
+      (Number(userProfile.premiumUntil / BigInt(1_000_000)) - Date.now()) /
+        (1000 * 60 * 60 * 24),
+    );
+    if (daysLeft > 0) {
+      return {
+        text: `До окончания Premium осталось ${daysLeft} дн. После истечения срока вернётся бесплатный план (до 5 записей).`,
+      };
+    }
+    return {
+      text: "Ваш Premium уже истёк. Купите новый Premium, чтобы продолжить пользоваться всеми функциями.",
+    };
+  }
+  return {
+    text: "У вас нет активного Premium. Купите Premium ($3/мес) через кнопку «Купить Premium» на главном экране.",
+  };
+}
+
+function getBotResponse(
+  question: string,
+  userProfile?: UserProfile,
+): {
   text: string;
   extras?: React.ReactNode;
 } {
   const q = question.toLowerCase().replace(/[?!.,]/g, "");
+
+  // Check days remaining question first
+  if (DAYS_REMAINING_KEYWORDS.some((kw) => q.includes(kw))) {
+    return getDaysRemainingAnswer(userProfile);
+  }
 
   // First try exact/partial keyword match
   for (const entry of KB) {
@@ -394,7 +455,11 @@ function nextId() {
   return ++msgId;
 }
 
-export function SupportChatBot() {
+interface SupportChatBotProps {
+  userProfile?: UserProfile;
+}
+
+export function SupportChatBot({ userProfile }: SupportChatBotProps = {}) {
   const [isOpen, setIsOpen] = useState(false);
   const [hasUnread, setHasUnread] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -460,7 +525,7 @@ export function SupportChatBot() {
 
   const handleQuickReply = (question: string) => {
     addUserMessage(question);
-    const response = getBotResponse(question);
+    const response = getBotResponse(question, userProfile);
     addBotMessage(response.text, response.extras);
   };
 
@@ -469,7 +534,7 @@ export function SupportChatBot() {
     if (!text) return;
     setInputValue("");
     addUserMessage(text);
-    const response = getBotResponse(text);
+    const response = getBotResponse(text, userProfile);
     addBotMessage(response.text, response.extras);
   };
 

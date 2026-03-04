@@ -237,6 +237,11 @@ export function Dashboard({
                       до {formatPremiumDate(profile.data.premiumUntil)}
                     </p>
                   )}
+                  {(profile.data?.bonusBalance ?? 0n) > 0n && (
+                    <span className="text-xs text-muted-foreground">
+                      Бонус Д: {Number(profile.data?.bonusBalance ?? 0n)}
+                    </span>
+                  )}
                 </div>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -284,6 +289,12 @@ export function Dashboard({
                     <p className="text-xs text-destructive">
                       Лимит достигнут. Купите Premium для доступа к 50
                       аккаунтам.
+                    </p>
+                  )}
+                  {(profile.data?.bonusBalance ?? 0n) >= 100n && (
+                    <p className="text-xs text-[oklch(0.83_0.16_80)]">
+                      У вас {Number(profile.data?.bonusBalance ?? 0n)} Д —
+                      хватает на Premium!
                     </p>
                   )}
                 </div>
@@ -419,6 +430,7 @@ export function Dashboard({
       <BuyPremiumModal
         open={showBuyPremium}
         onClose={() => setShowBuyPremium(false)}
+        bonusBalance={profile.data?.bonusBalance ?? 0n}
       />
 
       <PasswordGeneratorModal
@@ -426,7 +438,7 @@ export function Dashboard({
         onClose={() => setShowGenerator(false)}
       />
 
-      <SupportChatBot />
+      <SupportChatBot userProfile={profile.data ?? undefined} />
     </div>
   );
 }

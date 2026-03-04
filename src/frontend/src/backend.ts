@@ -111,6 +111,7 @@ export interface UserProfile {
     isPremium: boolean;
     email?: string;
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: Time;
 }
@@ -135,6 +136,7 @@ export interface backendInterface {
     getMyProfile(): Promise<UserProfile | null>;
     getPendingPremiumRequests(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
     getPremiumCodes(adminPasswordInput: string): Promise<Array<PremiumCode>>;
+    getPremiumDaysRemaining(): Promise<bigint | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     loginEmailUser(email: string, passwordHash: string): Promise<boolean>;
@@ -142,6 +144,7 @@ export interface backendInterface {
     registerEmailUser(email: string, passwordHash: string, contact: string): Promise<boolean>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    spendBonus(): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     validateCode(code: string): Promise<boolean>;
 }
@@ -358,6 +361,20 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async getPremiumDaysRemaining(): Promise<bigint | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.getPremiumDaysRemaining();
+                return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.getPremiumDaysRemaining();
+            return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
@@ -445,14 +462,28 @@ export class Backend implements backendInterface {
     async saveCallerUserProfile(arg0: UserProfile): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n12(this._uploadFile, this._downloadFile, arg0));
+                const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n13(this._uploadFile, this._downloadFile, arg0));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n12(this._uploadFile, this._downloadFile, arg0));
+            const result = await this.actor.saveCallerUserProfile(to_candid_UserProfile_n13(this._uploadFile, this._downloadFile, arg0));
+            return result;
+        }
+    }
+    async spendBonus(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.spendBonus();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.spendBonus();
             return result;
         }
     }
@@ -491,6 +522,9 @@ function from_candid_UserProfile_n5(_uploadFile: (file: ExternalBlob) => Promise
 function from_candid_UserRole_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
     return from_candid_variant_n11(_uploadFile, _downloadFile, value);
 }
+function from_candid_opt_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+    return value.length === 0 ? null : value[0];
+}
 function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [string]): string | null {
     return value.length === 0 ? null : value[0];
 }
@@ -507,6 +541,7 @@ function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint
     isPremium: boolean;
     email: [] | [string];
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: _Time;
 }): {
@@ -516,6 +551,7 @@ function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint
     isPremium: boolean;
     email?: string;
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: Time;
 } {
@@ -526,6 +562,7 @@ function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint
         isPremium: value.isPremium,
         email: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.email)),
         loginCount: value.loginCount,
+        bonusBalance: value.bonusBalance,
         pendingPremium: value.pendingPremium,
         registeredAt: value.registeredAt
     };
@@ -548,19 +585,20 @@ function from_candid_variant_n11(_uploadFile: (file: ExternalBlob) => Promise<Ui
 function from_candid_vec_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<[Principal, _UserProfile]>): Array<[Principal, UserProfile]> {
     return value.map((x)=>from_candid_tuple_n4(_uploadFile, _downloadFile, x));
 }
-function to_candid_UserProfile_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserProfile): _UserProfile {
-    return to_candid_record_n13(_uploadFile, _downloadFile, value);
+function to_candid_UserProfile_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserProfile): _UserProfile {
+    return to_candid_record_n14(_uploadFile, _downloadFile, value);
 }
 function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
     return to_candid_variant_n2(_uploadFile, _downloadFile, value);
 }
-function to_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function to_candid_record_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     contact?: string;
     premiumUntil?: Time;
     lastLoginAt: Time;
     isPremium: boolean;
     email?: string;
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: Time;
 }): {
@@ -570,6 +608,7 @@ function to_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8
     isPremium: boolean;
     email: [] | [string];
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: _Time;
 } {
@@ -580,6 +619,7 @@ function to_candid_record_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         isPremium: value.isPremium,
         email: value.email ? candid_some(value.email) : candid_none(),
         loginCount: value.loginCount,
+        bonusBalance: value.bonusBalance,
         pendingPremium: value.pendingPremium,
         registeredAt: value.registeredAt
     };

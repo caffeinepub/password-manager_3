@@ -25,12 +25,15 @@ import {
   MessageCircle,
   Plus,
   RefreshCw,
+  Send,
   Shield,
   Sparkles,
+  Trash2,
   Users,
+  X,
 } from "lucide-react";
-import { motion } from "motion/react";
-import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { UserProfile } from "../backend.d";
 import {
@@ -369,6 +372,222 @@ function PremiumCodesTab({ adminPassword }: PremiumCodesTabProps) {
   );
 }
 
+// ─── Admin Chat Tab ────────────────────────────────────────────────────────────
+
+interface ChatMessage {
+  id: number;
+  type: "admin" | "info";
+  text: string;
+}
+
+let adminMsgId = 0;
+function nextAdminId() {
+  return ++adminMsgId;
+}
+
+const QUICK_BOT_REPLIES = [
+  "Ваш Premium активирован ✓",
+  "Premium не пришёл — пожалуйста уточните номер телефона/email",
+  "Оплата получена, активирую в течение 1 часа",
+  "Ваш бонус 100 Д начислен вместе с Premium",
+];
+
+function AdminChatTab() {
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: nextAdminId(),
+      type: "info",
+      text: "Здесь вы пишете как бот. Используйте заготовленные ответы или напишите своё сообщение.",
+    },
+  ]);
+  const [inputValue, setInputValue] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      }
+    }, 50);
+  };
+
+  const handleSend = () => {
+    const text = inputValue.trim();
+    if (!text) return;
+    setMessages((prev) => [
+      ...prev,
+      { id: nextAdminId(), type: "admin", text },
+    ]);
+    setInputValue("");
+    scrollToBottom();
+  };
+
+  const handleQuickReply = (text: string) => {
+    setInputValue(text);
+  };
+
+  const handleDelete = (id: number) => {
+    setMessages((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const handleClear = () => {
+    setMessages([
+      {
+        id: nextAdminId(),
+        type: "info",
+        text: "Здесь вы пишете как бот. Используйте заготовленные ответы или напишите своё сообщение.",
+      },
+    ]);
+  };
+
+  return (
+    <div
+      className="rounded-xl border border-border bg-card overflow-hidden flex flex-col"
+      style={{ height: "560px" }}
+    >
+      {/* Chat header */}
+      <div
+        className="flex items-center justify-between px-4 py-3 shrink-0 border-b border-border"
+        style={{ background: "oklch(0.15 0.018 252 / 0.6)" }}
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: "oklch(0.72 0.17 158 / 0.15)" }}
+          >
+            <MessageCircle
+              className="w-4 h-4"
+              style={{ color: "oklch(0.72 0.17 158)" }}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-foreground font-display">
+              Чат с ботом
+            </p>
+            <p className="text-[10px] text-muted-foreground">
+              Вы пишете от имени бота
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          data-ocid="admin.chat.clear_button"
+          onClick={handleClear}
+          title="Очистить чат"
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-red-400 hover:bg-secondary/60 transition-colors px-2 py-1.5 rounded-lg"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+          Очистить чат
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
+        style={{ scrollbarWidth: "thin" }}
+      >
+        <AnimatePresence initial={false}>
+          {messages.map((msg, idx) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.18 }}
+              className={`flex items-end gap-1 group ${msg.type === "admin" ? "flex-row-reverse" : "flex-row"}`}
+            >
+              <div
+                className="max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed whitespace-pre-line"
+                style={
+                  msg.type === "admin"
+                    ? {
+                        background: "oklch(0.72 0.17 158)",
+                        color: "oklch(0.1 0.02 250)",
+                        borderBottomRightRadius: "4px",
+                      }
+                    : {
+                        background: "oklch(0.22 0.02 248)",
+                        border: "1px solid oklch(0.28 0.02 248)",
+                        borderBottomLeftRadius: "4px",
+                      }
+                }
+              >
+                {msg.type === "admin" && (
+                  <span className="block text-[9px] font-bold uppercase opacity-70 mb-0.5 tracking-wider">
+                    Вы (как бот)
+                  </span>
+                )}
+                {msg.text}
+              </div>
+              <button
+                type="button"
+                data-ocid={`admin.chat.delete_button.${idx + 1}`}
+                onClick={() => handleDelete(msg.id)}
+                title="Удалить сообщение"
+                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 w-5 h-5 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-400 mb-1"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+
+      {/* Quick replies */}
+      <div className="px-4 pt-2 pb-1 border-t border-border/50 shrink-0">
+        <p className="text-[10px] text-muted-foreground mb-1.5 font-medium uppercase tracking-wider">
+          Заготовленные ответы
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {QUICK_BOT_REPLIES.map((reply, i) => (
+            <button
+              type="button"
+              key={reply}
+              data-ocid={`admin.chat.quick_reply.${i + 1}`}
+              onClick={() => handleQuickReply(reply)}
+              className="text-[11px] px-2.5 py-1 rounded-full border transition-all hover:scale-105 active:scale-95"
+              style={{
+                borderColor: "oklch(0.72 0.17 158 / 0.4)",
+                color: "oklch(0.72 0.17 158)",
+                background: "oklch(0.72 0.17 158 / 0.06)",
+              }}
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Input area */}
+      <div className="px-4 py-3 shrink-0 flex gap-2 items-center border-t border-border">
+        <input
+          data-ocid="admin.chat.input"
+          type="text"
+          placeholder="Напишите сообщение как бот..."
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSend()}
+          className="flex-1 bg-secondary/50 border border-border/50 rounded-xl px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary/50 transition-colors"
+        />
+        <button
+          type="button"
+          data-ocid="admin.chat.send_button"
+          onClick={handleSend}
+          disabled={!inputValue.trim()}
+          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 active:scale-95 shrink-0"
+          style={{ background: "oklch(0.72 0.17 158)" }}
+        >
+          <Send
+            className="w-3.5 h-3.5"
+            style={{ color: "oklch(0.1 0.02 250)" }}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function AdminPanel({ onLogout }: Props) {
   const adminPassword = localStorage.getItem("adminPassword") || "";
   const allUsers = useGetAllUsers(adminPassword);
@@ -491,6 +710,14 @@ export function AdminPanel({ onLogout }: Props) {
                 <Key className="w-4 h-4" />
                 Коды Premium
               </TabsTrigger>
+              <TabsTrigger
+                value="chat"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground gap-2"
+                data-ocid="admin.chat.tab"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Чат с ботом
+              </TabsTrigger>
             </TabsList>
 
             {/* All Users Tab */}
@@ -566,6 +793,11 @@ export function AdminPanel({ onLogout }: Props) {
             {/* Premium Codes Tab */}
             <TabsContent value="codes">
               <PremiumCodesTab adminPassword={adminPassword} />
+            </TabsContent>
+
+            {/* Chat Tab */}
+            <TabsContent value="chat">
+              <AdminChatTab />
             </TabsContent>
 
             {/* Pending Tab */}

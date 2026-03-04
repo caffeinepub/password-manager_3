@@ -29,6 +29,7 @@ export interface UserProfile {
     isPremium: boolean;
     email?: string;
     loginCount: bigint;
+    bonusBalance: bigint;
     pendingPremium: boolean;
     registeredAt: Time;
 }
@@ -52,6 +53,7 @@ export interface backendInterface {
     getMyProfile(): Promise<UserProfile | null>;
     getPendingPremiumRequests(adminPasswordInput: string): Promise<Array<[Principal, UserProfile]>>;
     getPremiumCodes(adminPasswordInput: string): Promise<Array<PremiumCode>>;
+    getPremiumDaysRemaining(): Promise<bigint | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     loginEmailUser(email: string, passwordHash: string): Promise<boolean>;
@@ -59,6 +61,7 @@ export interface backendInterface {
     registerEmailUser(email: string, passwordHash: string, contact: string): Promise<boolean>;
     requestPremium(): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    spendBonus(): Promise<void>;
     updateEntry(id: bigint, title: string, url: string, username: string, password: string, notes: string): Promise<void>;
     validateCode(code: string): Promise<boolean>;
 }

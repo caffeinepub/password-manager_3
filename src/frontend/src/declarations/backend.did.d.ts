@@ -32,6 +32,7 @@ export interface UserProfile {
   'isPremium' : boolean,
   'email' : [] | [string],
   'loginCount' : bigint,
+  'bonusBalance' : bigint,
   'pendingPremium' : boolean,
   'registeredAt' : Time,
 }
@@ -57,6 +58,7 @@ export interface _SERVICE {
     Array<[Principal, UserProfile]>
   >,
   'getPremiumCodes' : ActorMethod<[string], Array<PremiumCode>>,
+  'getPremiumDaysRemaining' : ActorMethod<[], [] | [bigint]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'loginEmailUser' : ActorMethod<[string, string], boolean>,
@@ -64,6 +66,7 @@ export interface _SERVICE {
   'registerEmailUser' : ActorMethod<[string, string, string], boolean>,
   'requestPremium' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'spendBonus' : ActorMethod<[], undefined>,
   'updateEntry' : ActorMethod<
     [bigint, string, string, string, string, string],
     undefined
